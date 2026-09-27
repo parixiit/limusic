@@ -158,7 +158,6 @@
 		"shortcuts_desc": "Lo que más usas, a un clic desde el inicio. Arrastra cualquier tarjeta aquí o elige de tu biblioteca.",
 		"jump_back_in": "Volver a escuchar",
 		"show_section": "Mostrar {title} en el inicio",
-		"hide_section": "Ocultar {title} del inicio",
 		"feed_empty": "Tu feed de inicio volvió vacío esta vez.",
 		"signed_out_hint": "Inicia sesión y el inicio se llena de mixes y playlists creadas con lo que escuchas.",
 		"add_to_end": "Añadir al final"
@@ -187,7 +186,6 @@
 		"empty_album": "Este álbum está vacío.",
 		"play_count": "{count} reproducciones",
 		"added_by": "Agregado por {user}",
-		"no_playlists_create": "Aún no hay playlists, crea una en tu Biblioteca.",
 		"search_playlists": "Buscar en tus playlists…",
 		"no_playlists_hint": "Aún no hay playlists. Guarda una desde su página o crea una en tu Biblioteca.",
 		"empty_playlist": "Esta playlist está vacía.",
@@ -351,8 +349,6 @@
 			"music_videos_hint": "Mostrar stream de video cuando esté disponible en lugar de solo audio.",
 			"hide_videos": "Ocultar videos en la búsqueda",
 			"hide_videos_hint": "Mostrar solo pistas de audio y lanzamientos oficiales en los resultados de búsqueda.",
-			"lyrics_provider": "Letra sincronizada (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Obtener letra sincronizada por la comunidad para las canciones activas.",
 			"blocked_artists_empty": "Nadie bloqueado aún. Usa \"Bloquear artista\" desde el menú ⋯ de la pista.",
 			"blocked_artists_remove": "Desbloquear {name}",
 			"blocked_artists_show_all": "Mostrar los {count}",
@@ -568,14 +564,12 @@
 			"your_name": "Tu nombre",
 			"your_name_placeholder": "Tu nombre",
 			"join_button": "Unirse a la sesión",
-			"sync_server": "Servidor de sincronización",
 			"sync_server_placeholder": "wss://tu-máquina.ts.net/ws",
 			"sync_server_hint": "Tu servidor autoalojado (ej. la URL de Tailscale Funnel). Se guarda para la próxima vez.",
 			"start_button": "Iniciar una sesión",
 			"hosting": "Anfitrión",
 			"listening": "Escuchando",
 			"copy_invite": "Copiar invitación",
-			"invite_copied": "Invitación copiada, envíala a un amigo",
 			"invite_copy_failed": "No se pudo copiar la invitación",
 			"join_requests": "Solicitudes de unión",
 			"in_room": "En la sala ({count})",
@@ -592,9 +586,7 @@
 			"status_connected": "Conectado",
 			"status_disconnected": "Desconectado",
 			"err_enter_name": "Ingresa un nombre primero",
-			"err_enter_server": "Ingresa la URL de tu servidor de sincronización",
-			"err_paste_code": "Pega el código de invitación que te envió tu amigo",
-			"err_paste_full_invite": "Pega la invitación completa del anfitrión, lleva la dirección del servidor"
+			"err_paste_code": "Pega el código de invitación que te envió tu amigo"
 		}
 	},
 	"integrations": {

@@ -158,7 +158,6 @@
 		"shortcuts_desc": "En çok dinlediğiniz içerikler ana sayfadan tek tık uzağınızda. Kartları buraya sürükleyin veya kitaplığınızdan seçin.",
 		"jump_back_in": "Yeniden dinleyin",
 		"show_section": "{title} bölümünü göster",
-		"hide_section": "{title} bölümünü gizle",
 		"feed_empty": "Ana sayfanız bu sefer boş döndü.",
 		"signed_out_hint": "Giriş yapın ve ana sayfanız dinlediklerinizle oluşturulan miksler ve çalma listeleriyle dolsun.",
 		"add_to_end": "En sona ekle"
@@ -187,7 +186,6 @@
 		"empty_album": "Bu albüm boş.",
 		"play_count": "{count} dinlenme",
 		"added_by": "{user} tarafından eklendi",
-		"no_playlists_create": "Şu an hiçbir çalma listesi yok, kütüphanenizde bir liste oluşturun.",
 		"search_playlists": "Çalma listelerinizde ara…",
 		"no_playlists_hint": "Şu an hiçbir çalma listesi yok. Sayfasında bir listeyi kaydedin veya kütüphanenizde bir liste oluşturun.",
 		"empty_playlist": "Bu çalma listesi boş.",
@@ -351,8 +349,6 @@
 			"music_videos_hint": "Yalnızca ses yerine uygun olduğunda video akışını gösterir.",
 			"hide_videos": "Aramada videoları gizle",
 			"hide_videos_hint": "Arama sonuçlarında yalnızca şarkıları ve resmi albümleri gösterir.",
-			"lyrics_provider": "Senkronize şarkı sözleri (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Çalan şarkı için topluluk destekli senkronize sözleri çeker.",
 			"blocked_artists": "Engelli sanatçılar",
 			"blocked_artists_hint": "Engelli sanatçılar, radiodan, otomatik çalmadan ve önerilerden çıkarılır. Açtığınız çalma listeleri ile albümlerse içlerindeki her şeyi çalmayı sürdürür.",
 			"blocked_artists_empty": "Henüz kimse engellenmedi. Parçanın ··· menüsünden \"Sanatçıyı engelle\" seçeneğini kullanın.",
@@ -568,14 +564,12 @@
 			"your_name": "Adınız",
 			"your_name_placeholder": "Adınız",
 			"join_button": "Oturuma katıl",
-			"sync_server": "Senkronizasyon sunucusu",
 			"sync_server_placeholder": "wss://makineniz.ts.net/ws",
 			"sync_server_hint": "Kendi sunucunuz (örn. Tailscale Funnel adresi). Sonrası için kaydedilir.",
 			"start_button": "Oturum başlat",
 			"hosting": "Sunucu",
 			"listening": "Dinleyici",
 			"copy_invite": "Daveti kopyala",
-			"invite_copied": "Davet kopyalandı, arkadaşınıza gönderin",
 			"invite_copy_failed": "Davet kopyalanamadı",
 			"join_requests": "Katılma istekleri",
 			"in_room": "Odadakiler ({count})",
@@ -592,9 +586,7 @@
 			"status_connected": "Bağlandı",
 			"status_disconnected": "Bağlantı kesildi",
 			"err_enter_name": "Önce adınızı girin",
-			"err_enter_server": "Senkronizasyon sunucu adresini girin",
-			"err_paste_code": "Arkadaşınızın gönderdiği davet kodunu yapıştırın",
-			"err_paste_full_invite": "Ev sahibinin gönderdiği tam davet kodunu yapıştırın"
+			"err_paste_code": "Arkadaşınızın gönderdiği davet kodunu yapıştırın"
 		}
 	},
 	"integrations": {

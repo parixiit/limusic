@@ -158,7 +158,6 @@
 		"shortcuts_desc": "Tout ce que vous utilisez le plus, accessible en un clic depuis l’accueil. Faites glisser une carte ici, ou choisissez-en une dans votre bibliothèque.",
 		"jump_back_in": "Reprendre l’écoute",
 		"show_section": "Afficher {title} sur l'accueil",
-		"hide_section": "Cacher {title} de l'accueil",
 		"feed_empty": "Votre fil d’accueil est vide pour le moment.",
 		"signed_out_hint": "Se connecter et l'accueil se remplira avec vos mix et playlists construits avec vos écoutes.",
 		"add_to_end": "Ajouter à la fin"
@@ -187,7 +186,6 @@
 		"empty_album": "Cet album est vide.",
 		"play_count": "{count} écoutés",
 		"added_by": "Ajouté par {user}",
-		"no_playlists_create": "Aucune playlist pour le moment, créez en une dans votre Bibliothèque.",
 		"search_playlists": "Rechercher vos playlists…",
 		"no_playlists_hint": "Aucune playlist pour le moment. Sauvegardez en une depuis sa page ou créez en une depuis votre Bibliothèque.",
 		"empty_playlist": "Cette playlist est vide.",
@@ -351,8 +349,6 @@
 			"music_videos_hint": "Afficher le flux vidéo lorsqu’il est disponible au lieu de l’audio uniquement.",
 			"hide_videos": "Masquer les vidéos dans les résultats de recherche",
 			"hide_videos_hint": "Afficher uniquement les titres audio et les sorties officielles dans les résultats de recherche.",
-			"lyrics_provider": "Paroles synchronisées (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Récupérer les paroles synchronisées par la communauté pour les titres en cours de lecture.",
 			"blocked_artists": "Artistes bloqués",
 			"blocked_artists_hint": "Les artistes bloqués ne sont pas diffusés à la radio, en lecture automatique ni dans les suggestions. Les playlists et les albums que vous ouvrez continuent quant à eux de lire tous les titres qu'ils contiennent.",
 			"blocked_artists_empty": "Personne n'a encore été bloqué. Utilisez l'option « Bloquer l'artiste » dans le menu ⋯ d'un morceau.",
@@ -568,14 +564,12 @@
 			"your_name": "Votre nom",
 			"your_name_placeholder": "Votre nom",
 			"join_button": "Rejoindre la session",
-			"sync_server": "Serveur de synchronisation",
 			"sync_server_placeholder": "wss://votre-machine.ts.net/ws",
 			"sync_server_hint": "Votre serveur auto-hébergé (par ex. l’URL Tailscale Funnel). Enregistré pour la prochaine fois.",
 			"start_button": "Démarrer une session",
 			"hosting": "Hébergement",
 			"listening": "Écoute",
 			"copy_invite": "Copier l’invitation",
-			"invite_copied": "Invitation copiée, envoyez-la à un ami",
 			"invite_copy_failed": "Impossible de copier l’invitation",
 			"join_requests": "Demandes pour rejoindre",
 			"in_room": "Dans la session ({count})",
@@ -592,9 +586,7 @@
 			"status_connected": "Connecté",
 			"status_disconnected": "Déconnecté",
 			"err_enter_name": "Saisissez d’abord un nom",
-			"err_enter_server": "Saisissez l’URL de votre serveur de synchronisation",
-			"err_paste_code": "Collez le code d’invitation envoyé par votre ami",
-			"err_paste_full_invite": "Collez l’invitation complète de l’hôte, elle contient l’adresse du serveur"
+			"err_paste_code": "Collez le code d’invitation envoyé par votre ami"
 		}
 	},
 	"integrations": {

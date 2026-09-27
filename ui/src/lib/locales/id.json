@@ -155,7 +155,6 @@
 		"shortcuts_desc": "Apa pun yang paling sering Anda buka, hanya satu klik dari beranda. Seret kartu apa saja ke sini, atau pilih dari perpustakaan Anda.",
 		"jump_back_in": "Lanjutkan mendengarkan",
 		"show_section": "Tampilkan {title} di beranda",
-		"hide_section": "Sembunyikan {title} dari beranda",
 		"feed_empty": "Umpan beranda Anda kosong kali ini.",
 		"signed_out_hint": "Masuk dan beranda Anda akan terisi dengan campuran lagu dan daftar putar berdasarkan apa yang Anda dengarkan.",
 		"add_to_end": "Tambahkan ke akhir"
@@ -184,7 +183,6 @@
 		"empty_album": "Album ini kosong.",
 		"play_count": "{count} kali diputar",
 		"added_by": "Ditambahkan oleh {user}",
-		"no_playlists_create": "Belum ada daftar putar, buat satu di Perpustakaan Anda.",
 		"search_playlists": "Cari daftar putar Anda…",
 		"no_playlists_hint": "Belum ada daftar putar. Simpan dari halamannya, atau buat satu di Perpustakaan Anda.",
 		"empty_playlist": "Daftar putar ini kosong.",
@@ -337,8 +335,6 @@
 			"music_videos_hint": "Tampilkan stream video jika tersedia, bukan hanya audio.",
 			"hide_videos": "Sembunyikan video dalam pencarian",
 			"hide_videos_hint": "Hanya tampilkan trek audio dan rilis resmi dalam hasil pencarian.",
-			"lyrics_provider": "Lirik tersinkronisasi (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Ambil lirik tersinkronisasi komunitas untuk lagu yang aktif.",
 			"blocked_artists": "Artis yang diblokir",
 			"blocked_artists_hint": "Artis yang diblokir akan dikecualikan dari radio, pemutaran otomatis, dan rekomendasi. Daftar putar dan album yang kamu buka tetap memutar seluruh isinya.",
 			"blocked_artists_empty": "Belum ada yang diblokir. Gunakan \"blokir artis\" dari menu ⋯ pada trek.",
@@ -449,14 +445,12 @@
 			"your_name": "Nama Anda",
 			"your_name_placeholder": "Nama Anda",
 			"join_button": "Gabung sesi",
-			"sync_server": "Server sinkronisasi",
 			"sync_server_placeholder": "wss://mesin-anda.ts.net/ws",
 			"sync_server_hint": "Server host pribadi Anda (mis. URL Tailscale Funnel). Disimpan untuk sesi berikutnya.",
 			"start_button": "Mulai sesi",
 			"hosting": "Menjadi Host",
 			"listening": "Mendengarkan",
 			"copy_invite": "Salin undangan",
-			"invite_copied": "Undangan disalin, kirimkan ke teman",
 			"invite_copy_failed": "Gagal menyalin undangan",
 			"join_requests": "Permintaan bergabung",
 			"in_room": "Di dalam ruangan ({count})",
@@ -473,9 +467,7 @@
 			"status_connected": "Terhubung",
 			"status_disconnected": "Terputus",
 			"err_enter_name": "Masukkan nama terlebih dahulu",
-			"err_enter_server": "Masukkan URL server sinkronisasi Anda",
-			"err_paste_code": "Tempelkan kode undangan yang dikirim teman Anda",
-			"err_paste_full_invite": "Tempelkan undangan lengkap dari host, yang berisi alamat server"
+			"err_paste_code": "Tempelkan kode undangan yang dikirim teman Anda"
 		}
 	},
 	"integrations": {

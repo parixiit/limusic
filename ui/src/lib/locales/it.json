@@ -152,7 +152,6 @@
 		"shortcuts_desc": "Tutto quello che ascolti di più, a un click dalla Home. Trascina qui una scheda o scegli dalla tua libreria.",
 		"jump_back_in": "Riprendi da dove eri",
 		"show_section": "Mostra {title} in Home",
-		"hide_section": "Nascondi {title} dalla Home",
 		"feed_empty": "La tua Home al momento è vuota.",
 		"signed_out_hint": "Accedi e la tua Home si riempirà di mix e playlist creati su misura per te."
 	},
@@ -180,7 +179,6 @@
 		"empty_album": "Quest'album è vuoto.",
 		"play_count": "{count} riproduzioni",
 		"added_by": "Aggiunto da {user}",
-		"no_playlists_create": "Nessuna playlist presente. Creane una nella tua libreria.",
 		"search_playlists": "Cerca nelle tue playlist…",
 		"no_playlists_hint": "Nessuna playlist presente. Salvala dalla sua pagina o creane una nella tua libreria.",
 		"empty_playlist": "Questa playlist è vuota.",
@@ -309,9 +307,7 @@
 			"music_videos": "",
 			"music_videos_hint": "",
 			"hide_videos": "",
-			"hide_videos_hint": "",
-			"lyrics_provider": "",
-			"lyrics_provider_hint": ""
+			"hide_videos_hint": ""
 		},
 		"data": {
 			"clear_cache": "",
@@ -410,14 +406,12 @@
 			"your_name": "",
 			"your_name_placeholder": "",
 			"join_button": "",
-			"sync_server": "",
 			"sync_server_placeholder": "",
 			"sync_server_hint": "",
 			"start_button": "",
 			"hosting": "",
 			"listening": "",
 			"copy_invite": "",
-			"invite_copied": "",
 			"invite_copy_failed": "",
 			"join_requests": "",
 			"in_room": "",
@@ -434,9 +428,7 @@
 			"status_connected": "",
 			"status_disconnected": "",
 			"err_enter_name": "",
-			"err_enter_server": "",
-			"err_paste_code": "",
-			"err_paste_full_invite": ""
+			"err_paste_code": ""
 		}
 	},
 	"integrations": {

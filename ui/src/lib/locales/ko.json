@@ -180,7 +180,6 @@
 		"shortcuts_desc": "가장 자주 이용하는 메뉴를 홈 화면에서 바로 바로가기로 이용해 보세요. 여기에 카드를 끌어오거나 라이브러리에서 고를 수 있습니다.",
 		"jump_back_in": "다시 듣기",
 		"show_section": "홈 화면에 {title} 표시",
-		"hide_section": "홈 화면에 {title} 숨기기",
 		"feed_empty": "홈 피드에 표시할 콘텐츠가 없습니다.",
 		"signed_out_hint": "로그인하고 내 감상 기록을 바탕으로 만든 맞춤 믹스와 플레이리스트를 홈 화면에서 만나보세요.",
 		"add_to_end": "재생목 맨 뒤에 추가"
@@ -218,7 +217,6 @@
 		"empty_album": "이 앨범에 수록된 곡이 없습니다.",
 		"play_count": "{count}회 재생",
 		"added_by": "{user} 님이 추가함",
-		"no_playlists_create": "아직 재생목록이 없어요. 라이브러리에서 새 재생목록을 만들어보세요.",
 		"search_playlists": "플레이리스트 검색…",
 		"no_playlists_hint": "아직 재생목록이 없어요. 해당 페이지에서 재생목록을 저장하거나, 라이브러리에서 직접 만들어보세요.",
 		"empty_playlist": "이 플레이리스트는 비어 있습니다.",
@@ -389,8 +387,6 @@
 			"blocked_artists_show_all": "{count} 모두 보기",
 			"blocked_artists_show_less": "간략히 보기",
 			"blocked_artists_copy": "JSON 복사",
-			"lyrics_provider": "동기화된 가사 (LRCLIB)",
-			"lyrics_provider_hint": "현재 재생 중인 곡의 커뮤니티 동기화 가사를 가져옵니다.",
 			"lastfm_primary_artist": "주 아티스트만 가져옵니다",
 			"lastfm_primary_artist_hint": "첫번째로 등록된 아티스트만 Last.fm으로 전송하여, 재생 기록이 실제 아티스트의 페이지에 정상적으로 누적되도록 합니다. \"&\"로 연결된 이름은 분리하지 않고 그대로 유지합니다.",
 			"lastfm_primary_strict": "\"&\"로 연결된 아티스트 이름도 분리하여, 첫번째 아티스트만 남깁니다",
@@ -599,14 +595,12 @@
 			"your_name": "내 이름",
 			"your_name_placeholder": "닉네임 입력",
 			"join_button": "세션 참여하기",
-			"sync_server": "동기화 서버",
 			"sync_server_placeholder": "wss://your.machine.ts.net/ws",
 			"sync_server_hint": "직접 호스팅하는 서버(예: Tailscale Funnel URL)를 입력합니다. 다음 사용을 위해 저장됩니다.",
 			"start_button": "세션 시작",
 			"hosting": "호스팅",
 			"listening": "재생 중",
 			"copy_invite": "초대 코드 복사",
-			"invite_copied": "초대 코드를 복사했습니다. 친구에게 공유해 보세요",
 			"invite_copy_failed": "초대 코드를 복사하지 못했습니다",
 			"join_requests": "참가 신청 목록",
 			"in_room": "방에 있는 인원 ({count})",
@@ -623,9 +617,7 @@
 			"status_connected": "연결됨",
 			"status_disconnected": "연결 끊김",
 			"err_enter_name": "먼저 이름을 입력해 주세요",
-			"err_enter_server": "동기화 서버 URL을 입력하세요",
-			"err_paste_code": "친구에게 받은 초대 코드를 붙여넣어 보세요",
-			"err_paste_full_invite": "방장에게 받은 전체 초대 메시지를 붙여넣어 보세요. 서버 주소가 포함되어 있습니다"
+			"err_paste_code": "친구에게 받은 초대 코드를 붙여넣어 보세요"
 		}
 	},
 	"integrations": {

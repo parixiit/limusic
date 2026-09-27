@@ -180,7 +180,6 @@
 		"shortcuts_desc": "Jedno kliknięcie ze strony głównej. Przeciągnij tutaj dowolną kartę lub wybierz z biblioteki.",
 		"jump_back_in": "Wróć do słuchania",
 		"show_section": "Pokaż {title} na stronie głównej",
-		"hide_section": "Ukryj {title} na stronie głównej",
 		"feed_empty": "Tym razem strona główna jest pusta.",
 		"signed_out_hint": "Zaloguj się, a strona główna wypełni się miksami i playlistami tworzonymi na podstawie tego, czego słuchasz.",
 		"add_to_end": "Dodaj na koniec"
@@ -218,7 +217,6 @@
 		"empty_album": "Ten album jest pusty.",
 		"play_count": "Odtworzenia: {count}",
 		"added_by": "Dodane przez {user}",
-		"no_playlists_create": "Brak playlist – utwórz ją w Bibliotece.",
 		"search_playlists": "Przeszukaj playlisty…",
 		"no_playlists_hint": "Brak playlist. Zapisz jakąś ze jej strony lub utwórz nową w Bibliotece.",
 		"empty_playlist": "Ta playlista jest pusta.",
@@ -393,8 +391,6 @@
 			"lastfm_primary_artist_hint": "Wysyłaj tylko pierwszego wymienionego wykonawcę do Last.fm, aby odtworzenia trafiły na właściwą stronę wykonawcy. Nazwy połączone znakiem „&” są zachowywane w całości.",
 			"lastfm_primary_strict": "Pomijaj również wykonawców połączonych znakiem „&”",
 			"lastfm_primary_strict_hint": "„Future & Metro Boomin” zostanie zascrobblowane jako „Future”. Duety z „&” w nazwie również zostaną skrócone.",
-			"lyrics_provider": "Zsynchronizowane teksty (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Pobieraj teksty synchronizowane przez społeczność dla aktywnych utworów.",
 			"crossfade": "Crossfade",
 			"crossfade_hint": "Jeden utwór płynnie przechodzi w drugi. Zużywa trochę więcej pamięci, bo w tym momencie grają dwa utwory naraz.",
 			"crossfade_duration": "Czas trwania płynnego przejścia",
@@ -599,14 +595,12 @@
 			"your_name": "Twoja Nazwa",
 			"your_name_placeholder": "Nazwij się",
 			"join_button": "Dołącz do sesji",
-			"sync_server": "Serwer synchronizacji",
 			"sync_server_placeholder": "wss://twoja-maszyna.ts.net/ws",
 			"sync_server_hint": "Twój własny serwer (np. adres URL Tailscale Funnel). Zapisywany na następny raz.",
 			"start_button": "Rozpocznij sesję",
 			"hosting": "Hostowanie",
 			"listening": "Słuchanie",
 			"copy_invite": "Kopiuj zaproszenie",
-			"invite_copied": "Zaproszenie skopiowane – wyślij je znajomemu",
 			"invite_copy_failed": "Nie udało się skopiować zaproszenia",
 			"join_requests": "Prośby o dołączenie",
 			"in_room": "W pokoju ({count})",
@@ -623,9 +617,7 @@
 			"status_connected": "Połączony",
 			"status_disconnected": "Rozłączono",
 			"err_enter_name": "Najpierw podaj nazwe",
-			"err_enter_server": "Podaj adres URL serwera synchronizacji",
-			"err_paste_code": "Wklej kod zaproszenia przesłane przez znajomego",
-			"err_paste_full_invite": "Wklej pełne zaproszenie od gospodarza – zawiera ono adres serwera"
+			"err_paste_code": "Wklej kod zaproszenia przesłane przez znajomego"
 		}
 	},
 	"integrations": {

@@ -152,7 +152,6 @@
 		"shortcuts_desc": "Что бы вы не искали много, один клик из домашней. Возьмите любую карточку или выберите из своей библиотеки.",
 		"jump_back_in": "Назад",
 		"show_section": "Показать {title} на домашней",
-		"hide_section": "Скрыть {title} из домашней",
 		"feed_empty": "На этот раз ваша домашняя страница пуста.",
 		"signed_out_hint": "Вход и дом заполняется миксами и плейлистами, построенными из того, что вы слушаете."
 	},
@@ -180,7 +179,6 @@
 		"empty_album": "Этот альбом пуст.",
 		"play_count": "{count} Проигранных",
 		"added_by": "Добавлено {user}",
-		"no_playlists_create": "Пока нет плейлистов, создайте их в своей библиотеке.",
 		"search_playlists": "Ищите ваши плейлисты..",
 		"no_playlists_hint": "Пока никаких плейлистов. Сохраните одну из этой страницы или создайте его в своей библиотеке.",
 		"empty_playlist": "Этот плейлист пуст.",
@@ -313,8 +311,6 @@
 			"music_videos_hint": "",
 			"hide_videos": "",
 			"hide_videos_hint": "",
-			"lyrics_provider": "Синхронизированный текст (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "",
 			"blocked_artists": "Заблокированные испольнители",
 			"blocked_artists_copy": "Скопировать JSON",
 			"blocked_artists_remove": "Отблокировать {name}",
@@ -421,14 +417,12 @@
 			"your_name": "Ваше имя",
 			"your_name_placeholder": "Ваше имя",
 			"join_button": "Подключиться к сессии",
-			"sync_server": "Сервер синхронизации",
 			"sync_server_placeholder": "",
 			"sync_server_hint": "Ваш собственный сервер (например, URL Tailscale Funnel). Сохранено для использования в будущем.",
 			"start_button": "Начать сессию",
 			"hosting": "Хостинг",
 			"listening": "Слушаем",
 			"copy_invite": "Скопировать приглашение",
-			"invite_copied": "Приглашение скопировано, скиньте приглашение своему другу",
 			"invite_copy_failed": "Не удалось скопировать приглашение",
 			"join_requests": "",
 			"in_room": "В комнате ({count})",
@@ -445,9 +439,7 @@
 			"status_connected": "Подключено",
 			"status_disconnected": "Отключено",
 			"err_enter_name": "Сначала введите имя",
-			"err_enter_server": "Введите URL-адрес сервера синхронизации",
-			"err_paste_code": "Вставьте код приглашения, который прислал ваш друг",
-			"err_paste_full_invite": ""
+			"err_paste_code": "Вставьте код приглашения, который прислал ваш друг"
 		}
 	},
 	"integrations": {

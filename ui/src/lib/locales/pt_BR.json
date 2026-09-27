@@ -158,7 +158,6 @@
 		"shortcuts_desc": "O que você mais usa, a um clique do início. Arraste qualquer card para cá ou escolha da sua biblioteca.",
 		"jump_back_in": "Continue ouvindo",
 		"show_section": "Mostrar {title} no início",
-		"hide_section": "Ocultar {title} do início",
 		"feed_empty": "Seu feed inicial veio vazio desta vez.",
 		"signed_out_hint": "Entre e o início se enche de mixes e playlists feitos a partir do que você ouve.",
 		"add_to_end": "Adicionar ao final"
@@ -187,7 +186,6 @@
 		"empty_album": "Este álbum está vazio.",
 		"play_count": "{count} reproduções",
 		"added_by": "Adicionado por {user}",
-		"no_playlists_create": "Nenhuma playlist ainda, crie uma na sua Biblioteca.",
 		"search_playlists": "Buscar suas playlists…",
 		"no_playlists_hint": "Nenhuma playlist ainda. Salve uma a partir da página dela ou crie uma na sua Biblioteca.",
 		"empty_playlist": "Esta playlist está vazia.",
@@ -351,8 +349,6 @@
 			"music_videos_hint": "Mostrar stream de vídeo quando disponível em vez de apenas áudio.",
 			"hide_videos": "Ocultar vídeos na busca",
 			"hide_videos_hint": "Mostrar apenas faixas de áudio e lançamentos oficiais nos resultados da busca.",
-			"lyrics_provider": "Letras sincronizadas (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Buscar letras sincronizadas pela comunidade para a música atual.",
 			"blocked_artists": "Artistas bloqueados",
 			"blocked_artists_hint": "Artistas bloqueados não aparecem no rádio, na reprodução automática nem nas recomendações. As playlists e os álbuns que você abre continuam reproduzindo todo o conteúdo presente neles.",
 			"blocked_artists_empty": "Ainda não há ninguém bloqueado. Use \"Bloquear artista\" no menu ⋯ de uma faixa.",
@@ -568,14 +564,12 @@
 			"your_name": "Seu nome",
 			"your_name_placeholder": "Seu nome",
 			"join_button": "Entrar na sessão",
-			"sync_server": "Servidor de sincronização",
 			"sync_server_placeholder": "wss://sua-maquina.ts.net/ws",
 			"sync_server_hint": "Seu servidor próprio (ex.: URL do Tailscale Funnel). Salvo para a próxima.",
 			"start_button": "Iniciar sessão",
 			"hosting": "Hospedando",
 			"listening": "Ouvindo",
 			"copy_invite": "Copiar convite",
-			"invite_copied": "Convite copiado, envie para um amigo",
 			"invite_copy_failed": "Não foi possível copiar o convite",
 			"join_requests": "Pedidos para entrar",
 			"in_room": "Na sala ({count})",
@@ -592,9 +586,7 @@
 			"status_connected": "Conectado",
 			"status_disconnected": "Desconectado",
 			"err_enter_name": "Digite um nome primeiro",
-			"err_enter_server": "Digite a URL do servidor de sincronização",
-			"err_paste_code": "Cole o código de convite que seu amigo enviou",
-			"err_paste_full_invite": "Cole o convite completo do anfitrião, ele traz o endereço do servidor"
+			"err_paste_code": "Cole o código de convite que seu amigo enviou"
 		}
 	},
 	"integrations": {

@@ -180,7 +180,6 @@
 		"shortcuts_desc": "快速開始聆聽您喜愛的歌曲。拖放卡片到這裡，或從收藏庫中選擇。",
 		"jump_back_in": "接著聆聽",
 		"show_section": "在首頁顯示 {title}",
-		"hide_section": "在首頁隱藏 {title}",
 		"feed_empty": "這裡目前空無一物。",
 		"signed_out_hint": "登入後，首頁會顯示為您打造的播放清單。",
 		"add_to_end": "新增至尾端"
@@ -218,7 +217,6 @@
 		"empty_album": "這個專輯空無一物。",
 		"play_count": "累積播放 {count} 次",
 		"added_by": "由 {user} 新增",
-		"no_playlists_create": "目前還沒有播放清單，請到收藏庫中新建一個。",
 		"search_playlists": "從播放清單中搜尋…",
 		"no_playlists_hint": "目前還沒有創建播放清單。您可以保存一個播放清單，或者在您的收藏庫中創建一個。",
 		"empty_playlist": "這個播放清單空無一物。",
@@ -393,8 +391,6 @@
 			"lastfm_primary_artist_hint": "只紀錄在 Last.fm 上被認可的演出者，這樣您的播放記錄就會顯示在真實的演出者頁面上。以 \"&\" 符號連接的姓名，將保持不變。",
 			"lastfm_primary_strict": "將用 \"&\" 連接的演出者名稱分開，只保留第一個演出者",
 			"lastfm_primary_strict_hint": "“Future & Metro Boomin” 縮寫為“Future”。 帶有 \"&\" 的組合名稱也會被縮寫。",
-			"lyrics_provider": "同步歌詞 (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "獲取與社區同步的歌曲歌詞，適用於正在播放的歌曲。",
 			"crossfade": "淡入淡出",
 			"crossfade_hint": "將每首歌曲的結尾與下一首的開頭連接起來。在歌曲過渡時，同時運行第二個音訊解碼器，這會需要更多的記憶體。",
 			"crossfade_duration": "淡入淡出持續時間",
@@ -599,14 +595,12 @@
 			"your_name": "顯示名稱",
 			"your_name_placeholder": "在此輸入您的大名",
 			"join_button": "加入活動",
-			"sync_server": "同步伺服器",
 			"sync_server_placeholder": "在此輸入同步伺服器地址",
 			"sync_server_hint": "您的個人伺服器（例如：Tailscale Funnel URL）。請保存下來，這將於後續使用。",
 			"start_button": "開始共同收聽活動",
 			"hosting": "正在主持",
 			"listening": "正在收聽",
 			"copy_invite": "複製邀請碼",
-			"invite_copied": "邀請碼已複製，傳送給您的朋友共同收聽",
 			"invite_copy_failed": "複製邀請碼失敗",
 			"join_requests": "加入請求",
 			"in_room": "目前人數 ({count})",
@@ -623,9 +617,7 @@
 			"status_connected": "已連接",
 			"status_disconnected": "已解除連接",
 			"err_enter_name": "請先輸入名稱",
-			"err_enter_server": "請輸入同步伺服器連結",
-			"err_paste_code": "貼上您收到的邀請碼",
-			"err_paste_full_invite": "請貼上主持人的完整邀請碼，其中已包含伺服器地址"
+			"err_paste_code": "貼上您收到的邀請碼"
 		}
 	},
 	"integrations": {
