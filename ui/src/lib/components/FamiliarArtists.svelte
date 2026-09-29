@@ -155,6 +155,7 @@
 			alt=""
 			class="h-full w-full object-cover object-[center_22%]"
 			loading="lazy"
+				decoding="async"
 			draggable="false"
 			onerror={() => imgFailed(a)}
 		/>
@@ -191,7 +192,7 @@
 							title={a.name ?? t('common.artist_singular')}
 						>
 							<div
-								class="h-full w-full"
+								class="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.05]"
 							>
 								{@render avatar(a, 'h-10 w-10')}
 							</div>

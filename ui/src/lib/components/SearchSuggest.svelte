@@ -37,7 +37,7 @@
 	let open = $state(false);
 	let items = $state<BrowseItem[]>([]);
 	let loading = $state(false);
-	let active = $state(-1); // arrow-key row, -1 = none (Enter submits the form); the mouse never sets it
+	let active = $state(-1); // keyboard-highlighted row, -1 = none (Enter submits the form)
 	let loadedFor = ''; // query `items` belongs to, so a stale response can't land
 	// The row the right-click menu belongs to: whatever the pointer last entered. It lives outside
 	// the panel and outlives it, because taking a menu action moves focus and closes the panel, and
@@ -82,7 +82,7 @@
 			items = [];
 			loading = true;
 		}
-		debounce = setTimeout(() => load(q), 500);
+		debounce = setTimeout(() => load(q), 200);
 	}
 
 	// Deliberately no reopen-on-focus: rows preventDefault on mousedown, so the input keeps focus
@@ -147,13 +147,7 @@
 	<!-- Advertises the palette, which searches the same thing from anywhere in the app
 	     (shortcuts.ts). Out of the way once there is a query to read, and never a click target:
 	     the field behind it is the target. -->
-	{#if !value}
-		<kbd
-			class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border bg-muted px-1.5 py-0.5 font-mono text-[0.625rem] font-medium tracking-wide text-muted-foreground"
-		>
-			{MOD}K
-		</kbd>
-	{/if}
+
 	{#if open}
 		<div
 			id="search-suggest"
@@ -190,10 +184,7 @@
 							: 'hover:bg-accent/40'} {hero ? 'border-b py-2.5' : 'py-1.5'}"
 						onmousedown={(e) => e.preventDefault()}
 						onmouseenter={() => {
-							// The pointer takes over from the arrow keys but never arms Enter: hovering a row
-							// on the way to the field left it highlighted, and Enter played it instead of
-							// searching (#334). Hover shows through `hover:` alone.
-							active = -1;
+							active = i;
 							ctxItem = item;
 						}}
 						onclick={() => choose(item)}

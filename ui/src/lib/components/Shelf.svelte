@@ -15,7 +15,7 @@
 	//
 	// The rail, its arrows, the edge fades and the content-visibility budget are shared by all of
 	// them; only the slot changes.
-	import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/svelte';
+	import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/svelte";
 	import {
 		ArrowLeft01Icon,
 		ArrowRight01Icon,
@@ -71,13 +71,14 @@
 	// A shelf is only worth a form of its own when it's overwhelmingly one kind of thing. Below the
 	// threshold it's a mixed bag ("Listen again"), and the plain card is the honest way to draw it.
 	const MOSTLY = 0.75;
-	type Mode = 'song' | 'album' | 'artist' | 'playlist' | 'card';
+	type Mode = "song" | "album" | "artist" | "playlist" | "card";
 	const mode = $derived.by<Mode>(() => {
-		if (community || !rich || !items.length) return 'card';
+		if (community || !rich || !items.length) return "card";
 		const counts = new Map<string, number>();
-		for (const i of items) counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1);
+		for (const i of items)
+			counts.set(i.kind, (counts.get(i.kind) ?? 0) + 1);
 		const [kind, n] = [...counts].sort((a, b) => b[1] - a[1])[0];
-		return n / items.length >= MOSTLY ? (kind as Mode) : 'card';
+		return n / items.length >= MOSTLY ? (kind as Mode) : "card";
 	});
 
 	const ICONS: Record<Mode, IconSvgElement | undefined> = {
@@ -85,7 +86,7 @@
 		album: CdIcon,
 		artist: UserMultiple02Icon,
 		playlist: PlayListIcon,
-		card: undefined
+		card: undefined,
 	};
 
 	// Song mode: four rows to a column, paged sideways. Twelve legible tracks per screenful against
@@ -94,12 +95,18 @@
 	// item that doesn't fit their form. Search's "Top results" is exactly this shape (the artist you
 	// searched for plus three of their songs), and dropping it hid the match entirely.
 	const ROWS = 4;
-	const songs = $derived(mode === 'song' ? items.filter((i) => i.kind === 'song').map(asSong) : []);
-	const others = $derived(mode === 'song' ? items.filter((i) => i.kind !== 'song') : []);
+	const songs = $derived(
+		mode === "song"
+			? items.filter((i) => i.kind === "song").map(asSong)
+			: [],
+	);
+	const others = $derived(
+		mode === "song" ? items.filter((i) => i.kind !== "song") : [],
+	);
 	const columns = $derived(
 		Array.from({ length: Math.ceil(songs.length / ROWS) }, (_, c) =>
-			songs.slice(c * ROWS, c * ROWS + ROWS)
-		)
+			songs.slice(c * ROWS, c * ROWS + ROWS),
+		),
 	);
 	// Clicking any row starts there and queues the whole shelf, so a shelf plays as the set it is.
 	// Unless the shelf isn't a set (`queueAll={false}`), where only the clicked song plays.
@@ -135,32 +142,21 @@
 		canRight = row.scrollLeft + row.clientWidth < row.scrollWidth - 4;
 	}
 
-	let hovered = false;
 	const measureOnEnter = (el: HTMLElement) => {
-		const enter = () => {
-			hovered = true;
-			update();
-		};
-		const leave = () => (hovered = false);
-		el.addEventListener('pointerenter', enter);
-		el.addEventListener('pointerleave', leave);
-		return () => {
-			el.removeEventListener('pointerenter', enter);
-			el.removeEventListener('pointerleave', leave);
-		};
+		el.addEventListener("pointerenter", update);
+		return () => el.removeEventListener("pointerenter", update);
 	};
 
 	function page(dir: 1 | -1) {
-		row?.scrollBy({ left: dir * Math.round(row.clientWidth * 0.9), behavior: 'smooth' });
+		row?.scrollBy({
+			left: dir * Math.round(row.clientWidth * 1),
+			behavior: "smooth",
+		});
 	}
 
-	// Re-measure when the content changes under the pointer, and only then. Measuring at mount reads
-	// scrollWidth before content-visibility has skipped anything, which makes WebKitGTK lay out every
-	// shelf on the page synchronously: going back to Home spent ~640 of its ~870 ms there with 8
-	// shelves (perf/navprobe.py). The arrows only show on hover, and pointerenter measures then.
 	$effect(() => {
-		items;
-		if (hovered) update();
+		items; // re-measure when content changes
+		update();
 	});
 </script>
 
@@ -183,7 +179,7 @@
 					class="flex shrink-0 cursor-pointer items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
 				>
 					<HugeiconsIcon icon={PlayIcon} class="h-3.5 w-3.5" />
-					{t('common.play_all')}
+					{t("common.play_all")}
 				</button>
 			{/if}
 		</SectionHeading>
@@ -194,15 +190,15 @@
 	     An attachment rather than onpointerenter: the handler doesn't make this div interactive. -->
 	<div class="group/shelf relative" {@attach measureOnEnter}>
 		<div
-			class="rail flex snap-x overflow-x-auto pb-2 {mode === 'song'
+			class="rail flex snap-x overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden {mode === 'song'
 				? 'gap-0'
 				: community
 					? 'gap-3'
-					: 'gap-2'}"
+					: 'gap-2'} {canLeft && canRight ? '[mask-image:linear-gradient(to_right,transparent,black_32px,black_calc(100%-32px),transparent)]' : canLeft ? '[mask-image:linear-gradient(to_right,transparent,black_32px)]' : canRight ? '[mask-image:linear-gradient(to_left,transparent,black_32px)]' : ''}"
 			bind:this={row}
 			onscroll={update}
 		>
-			{#if mode === 'song'}
+			{#if mode === "song"}
 				{#each others as item (item.id)}
 					<div class="min-w-0 shrink-0 snap-start pr-4" style={cardWidth()}><MediaCard {item} /></div>
 				{/each}
@@ -223,10 +219,12 @@
 					</div>
 				{/each}
 			{:else}
-				{#each items as item, i (item.id + ':' + i)}
+				{#each items as item, i (item.id + ":" + i)}
 					<!-- A shelf keeps its form even where one item doesn't fit it: a stray song in an
 					     artist shelf gets the plain card and its width, not a poster it isn't. -->
-					{@const own = community ? item.kind === 'playlist' : item.kind === mode}
+					{@const own = community
+						? item.kind === "playlist"
+						: item.kind === mode}
 					<!-- min-w-0: a flex item's automatic minimum size is its min-content, which overrides
 					     the basis, so without this a card with a long title grows past its slot. -->
 					<div
@@ -239,9 +237,9 @@
 							<MediaCard {item} />
 						{:else if community}
 							<CommunityCard {item} />
-						{:else if mode === 'artist'}
+						{:else if mode === "artist"}
 							<PortraitCard {item} />
-						{:else if mode === 'playlist'}
+						{:else if mode === "playlist"}
 							<StackCard {item} />
 						{:else}
 							<MediaCard {item} />
@@ -254,25 +252,19 @@
 		     is also what makes the arrow legible sitting on top of artwork. Both are pointer-transparent
 		     so they never eat a click meant for the card underneath. -->
 		{#if canLeft}
-			<div
-				class="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-background to-transparent"
-			></div>
 			<button
-				aria-label={t('a11y.scroll_left')}
+				aria-label={t("a11y.scroll_left")}
 				onclick={() => page(-1)}
-				class="absolute left-1 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background text-foreground opacity-0 shadow-lg transition hover:scale-105 focus-visible:opacity-100 group-hover/shelf:opacity-100"
+				class="absolute left-0 top-[calc(50%-4px)] origin-left flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background text-foreground opacity-0 shadow-lg transition hover:scale-105 focus-visible:opacity-100 group-hover/shelf:opacity-100"
 			>
 				<HugeiconsIcon icon={ArrowLeft01Icon} class="h-4 w-4" />
 			</button>
 		{/if}
 		{#if canRight}
-			<div
-				class="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-background to-transparent"
-			></div>
 			<button
-				aria-label={t('a11y.scroll_right')}
+				aria-label={t("a11y.scroll_right")}
 				onclick={() => page(1)}
-				class="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background text-foreground opacity-0 shadow-lg transition hover:scale-105 focus-visible:opacity-100 group-hover/shelf:opacity-100"
+				class="absolute right-0 top-[calc(50%-4px)] origin-right flex h-9 w-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border bg-background text-foreground opacity-0 shadow-lg transition hover:scale-105 focus-visible:opacity-100 group-hover/shelf:opacity-100"
 			>
 				<HugeiconsIcon icon={ArrowRight01Icon} class="h-4 w-4" />
 			</button>

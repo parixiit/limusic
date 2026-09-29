@@ -22,7 +22,20 @@
    regardless of the pointer heuristic. (This is a desktop app; hover always applies.) */
 @custom-variant hover (&:hover);
 
+/* Smooth native scrolling keeps wheel and trackpad movement fluid without the sticky, "jhatke"
+   feel from forcing `scroll-behavior: auto` globally. Keep the overscroll clamp so the page does
+   not rubber-band at the edges. */
+html, body {
+	scroll-behavior: smooth;
+	overscroll-behavior-y: none;
+	-webkit-overflow-scrolling: touch;
+}
+
 :root {
+	/* Theme-aware surfaces for the transparent app shell. */
+	--surface-titlebar: var(--background);
+	--surface-playerbar: var(--card);
+	--surface-sidebar: var(--sidebar);
 	/* Hue of the neutrals (greys, borders, muted surfaces, dark-mode backgrounds). Every tinted
 	   neutral below reads it, so the Themes tab can reshade the whole default palette from one
 	   number. Tokens at chroma 0 are pure white/black by design and stay that way. Preset palettes
@@ -167,6 +180,7 @@
 	--shadow-xl: 0px 4px 6px 0px hsl(240 30% 25% / 0.12), 0px 8px 10px -1px hsl(240 30% 25% / 0.12);
 	--shadow-2xl: 0px 4px 6px 0px hsl(240 30% 25% / 0.30);
 }
+
 .dark.theme-catppuccin {
 	--background: oklch(0.2155 0.0254 284.0647);
 	--foreground: oklch(0.8787 0.0426 272.2767);
@@ -202,72 +216,73 @@
 }
 
 .theme-tokyonight {
-    --background: oklch(0.9668 0.0058 264.5324);
-    --foreground: oklch(0.3593 0.0513 273.1802);
-    --card: oklch(0.9135 0.0068 277.1562);
-    --card-foreground: oklch(0.3593 0.0513 273.1802);
-    --popover: oklch(0.9135 0.0068 277.1562);
-    --popover-foreground: oklch(0.3593 0.0513 273.1802);
-    --primary: oklch(0.4794 0.1207 266.0080);
-    --primary-foreground: oklch(1.0000 0 0);
-    --secondary: oklch(0.4094 0.0546 274.2735);
-    --secondary-foreground: oklch(0.9668 0.0058 264.5324);
-    --muted: oklch(0.8387 0.0117 71.8792);
-    --muted-foreground: oklch(0.4717 0.0327 276.1987);
-    --accent: oklch(0.7190 0.1322 264.2022);
-    --accent-foreground: oklch(0.3593 0.0513 273.1802);
-    --destructive: oklch(0.7227 0.1589 10.2758);
-    --destructive-foreground: oklch(1.0000 0 0);
-    --border: oklch(0.8387 0.0117 71.8792);
-    --input: oklch(0.8387 0.0117 71.8792);
-    --ring: oklch(0.4794 0.1207 266.0080);
-    --chart-1: oklch(0.7190 0.1322 264.2022);
-    --chart-2: oklch(0.7953 0.1395 130.1364);
-    --chart-3: oklch(0.7839 0.1057 75.4281);
-    --chart-4: oklch(0.7515 0.1344 299.4992);
-    --chart-5: oklch(0.7227 0.1589 10.2758);
-    --sidebar: oklch(0.9135 0.0068 277.1562);
-    --sidebar-foreground: oklch(0.3593 0.0513 273.1802);
-    --sidebar-primary: oklch(0.4794 0.1207 266.0080);
-    --sidebar-primary-foreground: oklch(1.0000 0 0);
-    --sidebar-accent: oklch(0.8387 0.0117 71.8792);
-    --sidebar-accent-foreground: oklch(0.3593 0.0513 273.1802);
-    --sidebar-border: oklch(0.8387 0.0117 71.8792);
-    --sidebar-ring: oklch(0.4794 0.1207 266.0080);
+	--background: oklch(0.9668 0.0058 264.5324);
+	--foreground: oklch(0.3593 0.0513 273.1802);
+	--card: oklch(0.9135 0.0068 277.1562);
+	--card-foreground: oklch(0.3593 0.0513 273.1802);
+	--popover: oklch(0.9135 0.0068 277.1562);
+	--popover-foreground: oklch(0.3593 0.0513 273.1802);
+	--primary: oklch(0.4794 0.1207 266.0080);
+	--primary-foreground: oklch(1.0000 0 0);
+	--secondary: oklch(0.4094 0.0546 274.2735);
+	--secondary-foreground: oklch(0.9668 0.0058 264.5324);
+	--muted: oklch(0.8387 0.0117 71.8792);
+	--muted-foreground: oklch(0.4717 0.0327 276.1987);
+	--accent: oklch(0.7190 0.1322 264.2022);
+	--accent-foreground: oklch(0.3593 0.0513 273.1802);
+	--destructive: oklch(0.7227 0.1589 10.2758);
+	--destructive-foreground: oklch(1.0000 0 0);
+	--border: oklch(0.8387 0.0117 71.8792);
+	--input: oklch(0.8387 0.0117 71.8792);
+	--ring: oklch(0.4794 0.1207 266.0080);
+	--chart-1: oklch(0.7190 0.1322 264.2022);
+	--chart-2: oklch(0.7953 0.1395 130.1364);
+	--chart-3: oklch(0.7839 0.1057 75.4281);
+	--chart-4: oklch(0.7515 0.1344 299.4992);
+	--chart-5: oklch(0.7227 0.1589 10.2758);
+	--sidebar: oklch(0.9135 0.0068 277.1562);
+	--sidebar-foreground: oklch(0.3593 0.0513 273.1802);
+	--sidebar-primary: oklch(0.4794 0.1207 266.0080);
+	--sidebar-primary-foreground: oklch(1.0000 0 0);
+	--sidebar-accent: oklch(0.8387 0.0117 71.8792);
+	--sidebar-accent-foreground: oklch(0.3593 0.0513 273.1802);
+	--sidebar-border: oklch(0.8387 0.0117 71.8792);
+	--sidebar-ring: oklch(0.4794 0.1207 266.0080);
 }
+
 .dark.theme-tokyonight {
-    --background: oklch(0.2263 0.0214 280.4871);
-    --foreground: oklch(0.8456 0.0611 274.7629);
-    --card: oklch(0.2040 0.0158 284.9095);
-    --card-foreground: oklch(0.8456 0.0611 274.7629);
-    --popover: oklch(0.1946 0.0140 285.0231);
-    --popover-foreground: oklch(0.8456 0.0611 274.7629);
-    --primary: oklch(0.7190 0.1322 264.2022);
-    --primary-foreground: oklch(0.2263 0.0214 280.4871);
-    --secondary: oklch(0.2819 0.0355 274.7479);
-    --secondary-foreground: oklch(0.8456 0.0611 274.7629);
-    --muted: oklch(0.3056 0.0369 273.2268);
-    --muted-foreground: oklch(0.4955 0.0682 274.3730);
-    --accent: oklch(0.4955 0.0682 274.3730);
-    --accent-foreground: oklch(0.8456 0.0611 274.7629);
-    --destructive: oklch(0.7227 0.1589 10.2758);
-    --destructive-foreground: oklch(1.0000 0 0);
-    --border: oklch(0.3056 0.0369 273.2268);
-    --input: oklch(0.2591 0.0249 274.4439);
-    --ring: oklch(0.7190 0.1322 264.2022);
-    --chart-1: oklch(0.7190 0.1322 264.2022);
-    --chart-2: oklch(0.8200 0.1051 235.7153);
-    --chart-3: oklch(0.9363 0.0684 194.9137);
-    --chart-4: oklch(0.7515 0.1344 299.4992);
-    --chart-5: oklch(0.7953 0.1395 130.1364);
-    --sidebar: oklch(0.2040 0.0158 284.9095);
-    --sidebar-foreground: oklch(0.7666 0.0537 275.4924);
-    --sidebar-primary: oklch(0.7190 0.1322 264.2022);
-    --sidebar-primary-foreground: oklch(0.2263 0.0214 280.4871);
-    --sidebar-accent: oklch(0.2591 0.0249 274.4439);
-    --sidebar-accent-foreground: oklch(0.7190 0.1322 264.2022);
-    --sidebar-border: oklch(0.2355 0.0271 277.8103);
-    --sidebar-ring: oklch(0.7190 0.1322 264.2022);
+	--background: oklch(0.2263 0.0214 280.4871);
+	--foreground: oklch(0.8456 0.0611 274.7629);
+	--card: oklch(0.2040 0.0158 284.9095);
+	--card-foreground: oklch(0.8456 0.0611 274.7629);
+	--popover: oklch(0.1946 0.0140 285.0231);
+	--popover-foreground: oklch(0.8456 0.0611 274.7629);
+	--primary: oklch(0.7190 0.1322 264.2022);
+	--primary-foreground: oklch(0.2263 0.0214 280.4871);
+	--secondary: oklch(0.2819 0.0355 274.7479);
+	--secondary-foreground: oklch(0.8456 0.0611 274.7629);
+	--muted: oklch(0.3056 0.0369 273.2268);
+	--muted-foreground: oklch(0.4955 0.0682 274.3730);
+	--accent: oklch(0.4955 0.0682 274.3730);
+	--accent-foreground: oklch(0.8456 0.0611 274.7629);
+	--destructive: oklch(0.7227 0.1589 10.2758);
+	--destructive-foreground: oklch(1.0000 0 0);
+	--border: oklch(0.3056 0.0369 273.2268);
+	--input: oklch(0.2591 0.0249 274.4439);
+	--ring: oklch(0.7190 0.1322 264.2022);
+	--chart-1: oklch(0.7190 0.1322 264.2022);
+	--chart-2: oklch(0.8200 0.1051 235.7153);
+	--chart-3: oklch(0.9363 0.0684 194.9137);
+	--chart-4: oklch(0.7515 0.1344 299.4992);
+	--chart-5: oklch(0.7953 0.1395 130.1364);
+	--sidebar: oklch(0.2040 0.0158 284.9095);
+	--sidebar-foreground: oklch(0.7666 0.0537 275.4924);
+	--sidebar-primary: oklch(0.7190 0.1322 264.2022);
+	--sidebar-primary-foreground: oklch(0.2263 0.0214 280.4871);
+	--sidebar-accent: oklch(0.2591 0.0249 274.4439);
+	--sidebar-accent-foreground: oklch(0.7190 0.1322 264.2022);
+	--sidebar-border: oklch(0.2355 0.0271 277.8103);
+	--sidebar-ring: oklch(0.7190 0.1322 264.2022);
 }
 
 .theme-caffeine {
@@ -315,6 +330,7 @@
 	--shadow-xl: 0 1px 3px 0px hsl(0 0% 0% / 0.10), 0 8px 10px -1px hsl(0 0% 0% / 0.10);
 	--shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
 }
+
 .dark.theme-caffeine {
 	--background: oklch(0.1776 0 0);
 	--foreground: oklch(0.9491 0 0);
@@ -394,6 +410,7 @@
 	--shadow-xl: 0px 4px 8px -2px hsl(0 0% 0% / 0.10), 0px 8px 10px -3px hsl(0 0% 0% / 0.10);
 	--shadow-2xl: 0px 4px 8px -2px hsl(0 0% 0% / 0.25);
 }
+
 /* Neon's dark mode keeps the same accents/charts as its light mode, so this block lists only
    the tokens that actually differ; the rest inherit from .theme-neon above. */
 .dark.theme-neon {
@@ -459,6 +476,7 @@
 	--shadow-xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.10), 0px 8px 10px -2px hsl(0 0% 0% / 0.10);
 	--shadow-2xl: 0px 4px 8px -1px hsl(0 0% 0% / 0.25);
 }
+
 .dark.theme-breeze {
 	--background: oklch(0.2077 0.0398 265.7549);
 	--foreground: oklch(0.8717 0.0093 258.3382);
@@ -531,11 +549,7 @@
 }
 
 /* The blurred cover behind a hero (HomeHero, NowPlaying, the album and library headers), on its
-   own compositing layer. Put it on the element that holds the blurred image *and* the gradient
-   that fades it out, clipped (`overflow-hidden`), never on the image alone: two layers land a pixel
-   apart during WebKitGTK's animated wheel scroll, and a row of the raw wash flickers past the
-   fade's last line. NowPlaying's image carries it directly because it has no fade and never
-   scrolls. That promotion is the whole point of the class: left unpromoted,
+   own compositing layer. That promotion is the whole point of the class: left unpromoted,
    WebKitGTK re-runs the 40px gaussian over the element every time anything underneath it repaints,
    and the artwork tint below repaints the entire document on every frame of its crossfade. In the
    now-playing view the wash is the size of the window, so a track change spent more time
@@ -546,13 +560,7 @@
    all of it, so the wash stays. (An earlier note in NowPlaying.svelte has promotion measuring as
    noise: that was the video case, where the damage is the video *under* the blur every frame and
    the layer has to be re-rasterized regardless. Still true, and still why the wash is dropped
-   while a video plays.)
-
-   Not on Chromium (WebView2, Windows), where the promotion is what costs the frames (#341). There
-   the wash's layer is re-blurred every time something above it repaints, and every hover animation
-   that creates a layer pays overlap tests against it. Unpromoted, the blur is rasterized into the
-   page's tiles once. Measured 2026-09-28, perf/scroll.mjs, 1920x1080, 4x CPU, frames over 20 ms:
-   lyrics panel idle while playing 100% -> 4-11%, Home top hover 53% -> 30%. */
+   while a video plays.) */
 html:not(.chromium) .art-wash {
 	will-change: transform;
 }
@@ -659,11 +667,13 @@ html.art-tint.dark {
 	* {
 		@apply border-border outline-ring/50;
 	}
+
 	body {
 		/* Transparent, not bg-background: the window itself is transparent so the root container
 		   can paint rounded corners (see +layout.svelte). */
 		@apply bg-transparent text-foreground;
 	}
+
 	html,
 	body {
 		/* Chromium (WebView2, so Windows) rubber-bands the whole page when a wheel reaches the
@@ -679,9 +689,11 @@ html.art-tint.dark {
 		   reads it off <html>, so on an older WebView2 the <html> rule alone is dead CSS. */
 		overscroll-behavior: none;
 	}
+
 	html {
 		@apply font-sans;
 	}
+
 	button:not(:disabled),
 	[role='button'] {
 		/* Tailwind v4's preflight drops the UA stylesheet's pointer cursor on <button>, so a control
@@ -690,6 +702,7 @@ html.art-tint.dark {
 		   different cursor still wins with its own utility, since utilities come after base. */
 		cursor: pointer;
 	}
+
 	img {
 		/* No artwork in this app is a drag payload: the drag sources for the shortcuts grid and the
 		   queue are the wrapping card/row, never the image. Left native, every <img> peels off a
@@ -699,14 +712,34 @@ html.art-tint.dark {
 	}
 }
 
-/* --- Motion & interaction polish --- */
+/* Decoded off the main thread where the browser supports it, so a wall of thumbnails scrolling
+   into view never queues a synchronous decode on the frame it appears in. */
+img {
+	decoding: async;
+}
+
+/* Card hover lift, hardware-accelerated. Only on cards: scaling whole text rows causes
+   subpixel anti-aliasing loss in Chromium (blurry text). The lift and the pre-rasterized
+   shadow (MediaCard) share a curve and clock so they move as one object, not two. */
+.premium-card-hover {
+	transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.premium-card-hover:hover {
+	transform: scale(1.03) translateY(-3px) translateZ(0);
+	will-change: transform;
+}
 
 /* Loaded page content fades in over the skeleton/route swap it replaces. Opacity-only —
    cheap to composite on WebKitGTK. */
 @keyframes content-in {
-	from { opacity: 0; }
+	from {
+		opacity: 0;
+	}
 }
-.content-in { animation: content-in 150ms ease-out; }
+
+.content-in {
+	animation: content-in 150ms ease-out;
+}
 
 /* The card grid behind Library, Local music, search results and "See all". Same reasoning as
    Shelf.svelte: WebKit keeps every card in style, layout and paint, and because it rasterizes in
@@ -716,9 +749,12 @@ html.art-tint.dark {
    12.75rem is a card exactly (8px padding + 144px cover + 8px gap + title + subtitle + 8px); the
    `auto` keyword swaps in the measured size after a card's first paint, so the scrollbar stays put.
    Paint containment clips at the card's own box, which the group-hover shadow stays inside: it
-   reaches ~27px below the cover and there are 52px of title, subtitle and padding under it. */
+   reaches ~27px below the cover and there are 52px of title, subtitle and padding under it.
+   `scrollbar-gutter: stable` keeps a wide list's width from jumping a scrollbar's width when the
+   rows arrive and the bar appears. */
 .card-grid {
 	display: grid;
+	scrollbar-gutter: stable;
 	grid-template-columns: repeat(auto-fill, 10rem);
 	/* Pinned, not auto. An auto row is as tall as its tallest card, and a skipped card reports the
 	   contain-intrinsic-size below while a rendered one reports its real height — which is 1rem
@@ -729,7 +765,8 @@ html.art-tint.dark {
 	grid-auto-rows: 12.75rem;
 	gap: 1rem;
 }
-.card-grid > * {
+
+.card-grid>* {
 	content-visibility: auto;
 	contain-intrinsic-size: auto 12.75rem;
 }
@@ -961,25 +998,44 @@ html.art-tint.dark {
    duration to keep the speed constant. One direction, looping: the second copy lands where the
    first started, so translating back to 0 is not a visible jump. */
 @keyframes marquee {
-	to { transform: translateX(calc(var(--marquee-dx) * -1)); }
+	to {
+		transform: translateX(calc(var(--marquee-dx) * -1));
+	}
 }
+
 /* Three passes, not `infinite`: an overflowing title kept a transform animation running for the
    whole session, so the compositor never reached an idle frame and every other repaint in the app
    was re-incurred at refresh rate. Three passes is enough to read a long title; hovering still
    holds it still, and `{#key text}` in Marquee.svelte restarts it on every track change. */
-.marquee { animation: marquee linear 3; }
+.marquee {
+	animation: marquee linear 3;
+}
+
 /* Hovering holds it still: the artist line's names are links, and hitting a moving target is not.
    Triggered from the clipping box, not the scrolling track: the trailing copy is inert, so it is
    not hit-testable and hovering it would never reach the track itself. */
-.marquee-box:hover .marquee { animation-play-state: paused; }
+.marquee-box:hover .marquee {
+	animation-play-state: paused;
+}
 
 /* A small "pop" for the like button when a track is favourited. */
 @keyframes heart-pop {
-	0% { transform: scale(1); }
-	40% { transform: scale(1.4); }
-	100% { transform: scale(1); }
+	0% {
+		transform: scale(1);
+	}
+
+	40% {
+		transform: scale(1.4);
+	}
+
+	100% {
+		transform: scale(1);
+	}
 }
-.animate-heart-pop { animation: heart-pop 0.3s ease-out; }
+
+.animate-heart-pop {
+	animation: heart-pop 0.3s ease-out;
+}
 
 /* Range inputs (seek + volume): filled progress driven by --pct, with a thumb that
    only appears on hover/focus. Every Tauri target is WebKit/Chromium, so the
@@ -991,11 +1047,13 @@ input[type='range'].range {
 	background: transparent;
 	cursor: pointer;
 }
+
 input[type='range'].range::-webkit-slider-runnable-track {
 	height: 4px;
 	border-radius: 999px;
 	background: linear-gradient(to right, var(--primary) var(--pct, 0%), var(--muted) var(--pct, 0%));
 }
+
 input[type='range'].range::-webkit-slider-thumb {
 	-webkit-appearance: none;
 	appearance: none;
@@ -1007,24 +1065,29 @@ input[type='range'].range::-webkit-slider-thumb {
 	opacity: 0;
 	transition: opacity 0.15s ease, transform 0.15s ease;
 }
+
 /* Theater mode's bar is the width of the cover and is being read from across a room, where 4px on
    that width reads as a hairline. */
 input[type='range'].range.theater-range::-webkit-slider-runnable-track {
 	height: 6px;
 }
+
 input[type='range'].range.theater-range::-webkit-slider-thumb {
 	margin-top: -4px;
 	height: 14px;
 	width: 14px;
 }
+
 /* The mini player's seek bar sits on cover art, where --muted has nothing to contrast with. */
 input[type='range'].range.on-art::-webkit-slider-runnable-track {
 	background: linear-gradient(to right, var(--primary) var(--pct, 0%), rgb(255 255 255 / 0.35) var(--pct, 0%));
 }
+
 input[type='range'].range:hover::-webkit-slider-thumb,
 input[type='range'].range:focus-visible::-webkit-slider-thumb {
 	opacity: 1;
 }
+
 input[type='range'].range:active::-webkit-slider-thumb {
 	transform: scale(1.25);
 }
@@ -1036,40 +1099,67 @@ input[type='range'].range:active::-webkit-slider-thumb {
    stacking order. Every Tauri target is WebKit/Chromium, so this covers all
    platforms. */
 ::-webkit-scrollbar {
-	width: 8px;
-	height: 8px;
+	width: 6px;
+	height: 6px;
 }
+
 ::-webkit-scrollbar-track {
 	background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
 	background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
 	border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
 	background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
 }
+
 ::-webkit-scrollbar-corner {
 	background: transparent;
 }
 
-/* A shelf's sideways scrollbar. The arrows and the edge fades already say "this row continues", so
-   the bar is a hairline that only shows while the pointer is on the row: at 8px under every shelf
-   it was the heaviest line on home (#319). Still there for dragging, and the row still scrolls with
-   a trackpad or shift+wheel when it is invisible. */
-.rail::-webkit-scrollbar {
-	height: 4px;
+.rail,
+.rail * {
+	scrollbar-width: none;
 }
+
+.rail::-webkit-scrollbar {
+	display: none;
+	height: 0;
+}
+
 .rail::-webkit-scrollbar-thumb {
+	display: none;
 	background: transparent;
 }
+
 .rail:hover::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+/* Autohide scrollbar for the sidebar */
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+	background: transparent;
+}
+
+.sidebar-container:hover .sidebar-scrollbar::-webkit-scrollbar-thumb,
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb {
 	background: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+
+.sidebar-container:hover .sidebar-scrollbar::-webkit-scrollbar-thumb:hover,
+.sidebar-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+	background: color-mix(in srgb, var(--muted-foreground) 55%, transparent);
 }
 
 /* Respect users who ask the OS to minimise motion. */
 @media (prefers-reduced-motion: reduce) {
-	*, *::before, *::after {
+
+	*,
+	*::before,
+	*::after {
 		animation-duration: 0.01ms !important;
 		animation-iteration-count: 1 !important;
 		transition-duration: 0.01ms !important;

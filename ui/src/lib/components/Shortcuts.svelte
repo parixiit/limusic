@@ -191,6 +191,7 @@
 										alt=""
 										class="h-full w-full object-cover"
 										loading="lazy"
+				decoding="async"
 										draggable="false"
 										onerror={() => (failed = { ...failed, [item.thumbnail!]: true })}
 									/>

@@ -108,6 +108,7 @@
 							src={b.src}
 							alt={b.alt}
 							loading="lazy"
+				decoding="async"
 							class="mt-2 max-w-full rounded-lg border"
 						/>
 					{:else if b.t === 'pre'}
