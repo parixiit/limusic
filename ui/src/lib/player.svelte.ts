@@ -1177,29 +1177,52 @@ export function toggleSidebar() {
 	localStorage.setItem('sidebar_collapsed', ui.sidebarCollapsed ? '1' : '0');
 }
 
-export type Toast = { msg: string; kind: 'info' | 'success' | 'error' };
+export type Toast = {
+	msg: string;
+	kind: 'info' | 'success' | 'error';
+	action?: { label: string; onClick: () => void };
+};
 
 // A counter, not the toast itself: $state proxies the stored object, so `ui.toast === t` is never
 // true and the toast would never clear. It also means a repeated message can't cut its own retry short.
 let seq = 0;
 
-function show(msg: string, kind: Toast['kind']) {
+function show(
+	msg: string,
+	kind: Toast['kind'],
+	duration = 2500,
+	action?: { label: string; onClick: () => void }
+) {
 	const id = ++seq;
 	// The one chokepoint every `toast.error(String(e))` and every `playback-error` event goes
 	// through, so a dead connection is worded once here instead of at forty call sites. Anything
 	// that isn't a network failure (including every `t()` string passing through) is untouched.
-	ui.toast = { msg: friendlyNetError(msg, t('errors.unreachable')), kind };
-	setTimeout(() => {
-		if (seq === id) ui.toast = null;
-	}, 2500);
+	ui.toast = { msg: friendlyNetError(msg, t('errors.unreachable')), kind, action };
+	if (duration > 0) {
+		setTimeout(() => {
+			if (seq === id) ui.toast = null;
+		}, duration);
+	}
+	return id;
 }
 
 /** Sonner-shaped. Bare `toast(msg)` is a neutral notice; .success/.error pick the icon. */
-export const toast = Object.assign((msg: string) => show(msg, 'info'), {
-	info: (msg: string) => show(msg, 'info'),
-	success: (msg: string) => show(msg, 'success'),
-	error: (msg: string) => show(msg, 'error')
-});
+export const toast = Object.assign(
+	(msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+		show(msg, 'info', duration, action),
+	{
+		info: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'info', duration, action),
+		success: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'success', duration, action),
+		error: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'error', duration, action),
+		dismiss: () => {
+			seq++;
+			ui.toast = null;
+		}
+	}
+);
 
 export function openShare(item: BrowseItem) {
 	ui.share = item;
