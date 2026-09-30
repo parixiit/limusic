@@ -278,14 +278,15 @@ impl PoTokenGenerator {
     }
 
     /// Warm the minter for `visitor_data` (context/04 §startup). Non-fatal.
-    pub async fn prewarm(&self, visitor_data: &str) {
+    pub async fn prewarm(&self, visitor_data: &str, force_minter: bool) {
         if self.runtime_bad.load(Ordering::SeqCst) {
             return;
         }
         // The only reason to prewarm is to have the session token ready before the first /player
         // call, and one stored by a previous run is exactly that. The per-video streaming path
         // builds its own minter on demand if it ever needs one, so there is nothing else to warm.
-        if self.cached_session_token(visitor_data).await.is_some() {
+        let has_session_token = self.cached_session_token(visitor_data).await.is_some();
+        if has_session_token && !force_minter {
             tracing::info!("PoToken session token still valid — skipping the BotGuard bootstrap");
             return;
         }
