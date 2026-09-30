@@ -153,9 +153,11 @@
 
 	let menuOpen = $state(false);
 	let anchor = $state(NO_ANCHOR);
+	let isOnline = $state(true);
 
 	// Click on the ⋯ opens under the button; right-click on the host card or row opens at the pointer.
 	function openMenu(e: MouseEvent) {
+		isOnline = navigator.onLine;
 		e.preventDefault(); // a right-click must not also raise WebKit's own menu
 		e.stopPropagation();
 		// Saved albums and artists are only fetched by the Library page, and without them every card
@@ -273,7 +275,7 @@
 				<HugeiconsIcon icon={ArrowDownWideNarrowIcon} class="h-4 w-4" /> {t("player.add_to_queue")}
 			</button>
 		{/if}
-		{#if onYouTube}
+		{#if onYouTube && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) => run(e, () => startRadio(item.kind as 'artist' | 'album' | 'playlist', item.id, item.title))}
@@ -283,7 +285,7 @@
 		{/if}
 		<!-- Copies the tracks into one of your playlists. An artist has no track list to copy. Local
 		     albums and playlists on this machine count: the picker offers what can take them. -->
-		{#if item.id !== api.ON_REPEAT_ID && (item.kind === 'album' || item.kind === 'playlist')}
+		{#if item.id !== api.ON_REPEAT_ID && (item.kind === 'album' || item.kind === 'playlist') && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10 disabled:opacity-50"
 				disabled={adding}
@@ -302,7 +304,7 @@
 			<HugeiconsIcon icon={DashboardSquare02Icon} class="h-4 w-4" />
 			{isPick ? t('home.remove_shortcut') : t('player.add_to_shortcuts')}
 		</button>
-		{#if onYouTube}
+		{#if onYouTube && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) => run(e, () => openShare(item))}
@@ -313,7 +315,7 @@
 		<!-- One row for library membership: put it in, take the local copy back out, or just say it
 		     is already there (YouTube's own copy is unsaved from the item's page, which knows which
 		     write to send). Local folders and On Repeat have no library to be in. -->
-		{#if onYouTube && !inLib}
+		{#if onYouTube && !inLib && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10 disabled:opacity-50"
 				disabled={saving}
@@ -324,7 +326,7 @@
 			>
 				<HugeiconsIcon icon={BookPlusIcon} class="h-4 w-4" /> {t('library.save_to_library')}
 			</button>
-		{:else if onYouTube && !savedHere && !owned}
+		{:else if onYouTube && !savedHere && !owned && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10 disabled:opacity-50"
 				disabled={saving}
@@ -336,7 +338,7 @@
 				<HugeiconsIcon icon={BookmarkMinus02Icon} class="h-4 w-4" />
 				{t('library.remove_from_library')}
 			</button>
-		{:else if onYouTube}
+		{:else if onYouTube && isOnline}
 			<div class="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground">
 				<HugeiconsIcon icon={BookmarkCheck02Icon} class="h-4 w-4" /> {t('library.in_library')}
 			</div>
@@ -357,7 +359,7 @@
 		{/if}
 		<!-- Artist cards only. An album or playlist card's artist line is a composed subtitle, and
 		     there is no reliable identity in it to block by (plan 046). -->
-		{#if onYouTube && item.kind === 'artist'}
+		{#if onYouTube && item.kind === 'artist' && isOnline}
 			<button
 				class="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) => run(e, () => blockArtist(item.id, item.title))}
