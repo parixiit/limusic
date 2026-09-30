@@ -922,3 +922,42 @@ export const onLtState = (cb: (s: LtState) => void): Promise<UnlistenFn> =>
 	listen<LtState>('lt-state', (e) => cb(e.payload));
 export const onLtNotice = (cb: (msg: string) => void): Promise<UnlistenFn> =>
 	listen<string>('lt-notice', (e) => cb(e.payload));
+
+export interface DownloadProgress {
+	video_id: string;
+	title: string;
+	status: 'downloading' | 'tagging' | 'completed' | 'failed' | 'deleted';
+	percent: number;
+	error?: string;
+}
+
+export interface OfflineTrack {
+	video_id: string;
+	title: string;
+	artists: string;
+	album?: string;
+	duration?: string;
+	thumbnail?: string;
+	file_path: string;
+	file_size: number;
+	downloaded_at: number;
+}
+
+export const downloadTrack = (song: SongItem) =>
+	invoke<string>('download_track', { song });
+
+export const exportTrack = (song: SongItem, destinationPath: string) =>
+	invoke<string>('export_track', { song, destinationPath });
+
+export const getOfflineTracks = () =>
+	invoke<OfflineTrack[]>('get_offline_tracks');
+
+export const deleteOfflineTrack = (videoId: string) =>
+	invoke<void>('delete_offline_track', { videoId });
+
+export const isTrackOffline = (videoId: string) =>
+	invoke<boolean>('is_track_offline', { videoId });
+
+export const onDownloadProgress = (cb: (p: DownloadProgress) => void): Promise<UnlistenFn> =>
+	listen<DownloadProgress>('download-progress', (e) => cb(e.payload));
+
