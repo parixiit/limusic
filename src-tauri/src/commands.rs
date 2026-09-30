@@ -221,7 +221,7 @@ pub async fn get_queue(state: St<'_>) -> Result<serde_json::Value, String> {
 /// `visitor_data`) and internal blobs (`queue_json`, `queue_index`, `queue_position`) never cross
 /// into the webview: they'd otherwise ship the login credential to the renderer on every open, and
 /// the webview can't overwrite them either.
-const UI_SETTINGS: [&str; 26] = [
+const UI_SETTINGS: [&str; 27] = [
     "volume",
     "proxy",
     "quality",
@@ -231,6 +231,7 @@ const UI_SETTINGS: [&str; 26] = [
     "discord_rpc",
     "discord_rpc_config",
     "close_to_tray",
+    "fast_start",
     "track_notifications",
     "autostart",
     "start_minimized",
@@ -810,6 +811,7 @@ pub async fn get_playlist(
             sort_menu: None, // built from local history, so YouTube has no order to give
         });
     }
+
     if is_local_playlist(&id) {
         return local_playlist_page(&state, &id);
     }
@@ -2089,6 +2091,119 @@ pub fn theater_fullscreen(window: tauri::WebviewWindow, on: bool) -> Result<(), 
             })
             .map_err(|e| e.to_string())
     }
+}
+
+/// Download a track for in-app offline playback.
+#[tauri::command]
+pub async fn download_track(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    song: SongItem,
+) -> Result<String, String> {
+    let target_path = crate::download::offline_track_path(&app, &song.video_id)?;
+    let app_handle = app.clone();
+    let state_arc = state.inner().clone();
+    let v_id = song.video_id.clone();
+    let t_title = song.title.clone();
+    let app_for_err = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::download::download_track_worker(
+            app_handle,
+            state_arc,
+            song,
+            target_path,
+            true,
+        )
+        .await {
+            use tauri::Emitter;
+            let _ = app_for_err.emit(
+                "download-progress",
+                crate::download::DownloadProgress {
+                    video_id: v_id,
+                    title: t_title,
+                    status: "failed".to_string(),
+                    percent: 0.0,
+                    error: Some(e),
+                },
+            );
+        }
+    });
+    Ok("Download started".to_string())
+}
+
+/// Export a track as a tagged audio file to a user-chosen destination on disk.
+#[tauri::command]
+pub async fn export_track(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    song: SongItem,
+    destination_path: String,
+) -> Result<String, String> {
+    let target_path = std::path::PathBuf::from(destination_path);
+    let app_handle = app.clone();
+    let state_arc = state.inner().clone();
+    let v_id = song.video_id.clone();
+    let t_title = song.title.clone();
+    let app_for_err = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::download::download_track_worker(
+            app_handle,
+            state_arc,
+            song,
+            target_path,
+            false,
+        )
+        .await {
+            use tauri::Emitter;
+            let _ = app_for_err.emit(
+                "download-progress",
+                crate::download::DownloadProgress {
+                    video_id: v_id,
+                    title: t_title,
+                    status: "failed".to_string(),
+                    percent: 0.0,
+                    error: Some(e),
+                },
+            );
+        }
+    });
+    Ok("Export started".to_string())
+}
+
+/// List all downloaded tracks available for offline listening.
+#[tauri::command]
+pub fn get_offline_tracks(state: St<'_>) -> Vec<crate::download::OfflineTrack> {
+    state.db.get_offline_tracks()
+}
+
+/// Delete an offline track from disk and database.
+#[tauri::command]
+pub fn delete_offline_track(app: tauri::AppHandle, state: St<'_>, video_id: String) -> Result<(), String> {
+    if let Ok(path) = crate::download::offline_track_path(&app, &video_id) {
+        let _ = std::fs::remove_file(path);
+    }
+    if let Ok(dir) = crate::download::offline_covers_dir(&app) {
+        let _ = std::fs::remove_file(dir.join(format!("{}.jpg", video_id)));
+    }
+    let res = state.db.delete_offline_track(&video_id).map_err(|e| e.to_string());
+    use tauri::Emitter;
+    let _ = app.emit(
+        "download-progress",
+        crate::download::DownloadProgress {
+            video_id: video_id.clone(),
+            title: String::new(),
+            status: "deleted".to_string(),
+            percent: 0.0,
+            error: None,
+        },
+    );
+    res
+}
+
+/// Check if a track is available offline.
+#[tauri::command]
+pub fn is_track_offline(app: tauri::AppHandle, video_id: String) -> bool {
+    crate::download::is_offline(&app, &video_id)
 }
 
 #[cfg(test)]
