@@ -155,6 +155,8 @@ export function hydrate(raw: unknown): Personal {
 		}
 		// Shortcuts sat above the arrangement until it became a section of its own; it stays on top.
 		if (order.length && !order.includes('@shortcuts')) order.unshift('@shortcuts');
+		// Downloads should always be the absolute first section, before Shortcuts.
+		if (order.length && !order.includes('@downloads')) order.unshift('@downloads');
 	}
 	return base;
 }

@@ -19,6 +19,7 @@
 	import Shelf from '$lib/components/Shelf.svelte';
 	import ForgottenFavourites from '$lib/components/ForgottenFavourites.svelte';
 	import FamiliarArtists from '$lib/components/FamiliarArtists.svelte';
+	import DownloadsShelf from '$lib/components/DownloadsShelf.svelte';
 	import HomeLayoutDialog from '$lib/components/HomeLayoutDialog.svelte';
 	import TrackRowSkeleton from '$lib/components/TrackRowSkeleton.svelte';
 	import * as api from '$lib/api';
@@ -103,6 +104,7 @@
 	const RECENT = '@recent';
 	const FAMILIAR = '@familiar';
 	const FORGOTTEN = '@forgotten';
+	const DOWNLOADS = '@downloads';
 	type Block =
 		| { id: string; key: string; title: string; shelf?: undefined }
 		| { id: string; key: string; title: string; shelf: HomeSection };
@@ -110,6 +112,7 @@
 	const hidden = $derived(hiddenSections(personal));
 	/** Ours, in the order they sit on a home nobody has arranged. */
 	const local = $derived<Block[]>([
+		{ id: DOWNLOADS, key: DOWNLOADS, title: 'Downloads' },
 		{ id: SHORTCUTS, key: SHORTCUTS, title: t('home.shortcuts') },
 		{ id: RECENT, key: RECENT, title: t('home.jump_back_in') },
 		{ id: FAMILIAR, key: FAMILIAR, title: t('home.familiar_artists') },
@@ -429,6 +432,8 @@
 						community={/community/i.test(block.shelf.title)}
 						onMore={block.shelf.moreBrowseId ? () => showMore(block.shelf!) : undefined}
 					/>
+				{:else if block.key === DOWNLOADS}
+					<DownloadsShelf />
 				{:else if block.key === SHORTCUTS}
 					<Shortcuts />
 				{:else if block.key === RECENT}

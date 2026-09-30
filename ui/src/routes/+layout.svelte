@@ -305,7 +305,7 @@
 	{#if updateState.available}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
-			class="fixed bottom-24 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
+			class="pointer-events-auto fixed bottom-24 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
 		>
 			<span>{availableMessage(updateState.available)}</span>
 			{#if updateState.canInstall}
@@ -335,7 +335,7 @@
 		{@const t = ui.toast}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
-			class="fixed bottom-40 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
+			class="pointer-events-auto fixed bottom-40 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
 		>
 			<!-- Three branches instead of a ternary on `icon`: HugeiconsIcon freezes `icon` at mount, so a
 			     new toast replacing a visible one would keep the old glyph. -->
@@ -349,7 +349,34 @@
 					class="h-4 w-4 shrink-0 text-muted-foreground"
 				/>
 			{/if}
-			{t.msg}
+			{#if t.msg.includes('<b>')}
+				<span>{@html t.msg}</span>
+			{:else}
+				<span>{t.msg}</span>
+			{/if}
+			{#if t.action}
+				<div class="ml-2 flex items-center gap-1.5 border-l border-border/60 pl-2.5">
+					<button
+						type="button"
+						class="cursor-pointer rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 active:scale-95 transition"
+						onclick={() => {
+							t.action?.onClick();
+							ui.toast = null;
+						}}
+					>
+						{t.action.label}
+					</button>
+					<button
+						type="button"
+						class="cursor-pointer rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+						onclick={() => {
+							ui.toast = null;
+						}}
+					>
+						Later
+					</button>
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/if}

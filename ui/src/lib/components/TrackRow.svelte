@@ -38,7 +38,8 @@
 		inLibraryList = false,
 		selection,
 		selectionKey,
-		lazy = false
+		lazy = false,
+		isOfflineList = false
 	}: {
 		song: SongItem;
 		/** Position badge when set (playlist/queue); omitted for flat search results. */
@@ -85,6 +86,8 @@
 		 * row below.
 		 */
 		lazy?: boolean;
+		/** Hides internet-dependent menu options for offline track lists. */
+		isOfflineList?: boolean;
 	} = $props();
 	const selectionDescriptionId = $props.id();
 
@@ -284,12 +287,6 @@
 			</div>
 			<div class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
 				<ArtistLine runs={song.artist_runs} text={song.artists} />
-				{#if compact && duration}
-					<!-- No leading dot with nothing before it: a search row can come back artist-less
-					     (YouTube drops the name when the query is the artist), leaving the length alone
-					     on the line. -->
-					<span class="shrink-0">{song.artists.trim() ? '· ' : ''}{duration}</span>
-				{/if}
 			</div>
 		</div>
 	</div>
@@ -378,6 +375,7 @@
 			{playlistId}
 			{queueIndex}
 			{inLibraryList}
+			{isOfflineList}
 			triggerClass="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent/20 hover:text-foreground {compact
 				? ''
 				: 'invisible group-focus-within:visible group-hover:visible'}"
