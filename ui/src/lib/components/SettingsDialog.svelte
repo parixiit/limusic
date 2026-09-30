@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { open, save } from '@tauri-apps/plugin-dialog';
+	import { relaunch } from '@tauri-apps/plugin-process';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import {
 		Cancel01Icon,
@@ -351,6 +352,7 @@
 	const updateBannerOn = $derived(settings.update_banner !== 'false');
 	const betaOn = $derived(settings.update_channel === 'beta');
 	const trayOn = $derived(settings.close_to_tray !== 'false');
+	const fastStartOn = $derived(settings.fast_start === 'true');
 	const trackNotificationsOn = $derived(settings.track_notifications === 'true');
 	const autostartOn = $derived(settings.autostart === 'true');
 	const startMinimizedOn = $derived(settings.start_minimized === 'true');
@@ -454,6 +456,17 @@
 	async function setTray(on: boolean) {
 		settings.close_to_tray = on ? 'true' : 'false';
 		await api.setSetting('close_to_tray', settings.close_to_tray);
+	}
+
+	async function setFastStart(on: boolean) {
+		settings.fast_start = on ? 'true' : 'false';
+		await api.setSetting('fast_start', settings.fast_start);
+		toast.info("Restart required to apply Fast Start", 8000, {
+			label: "Restart",
+			onClick: () => {
+				relaunch().catch((e) => toast.error(String(e)));
+			}
+		});
 	}
 
 	async function setTrackNotifications(on: boolean) {
@@ -659,6 +672,11 @@
 									title: t('settings.general.close_to_tray'),
 									desc: t('settings.general.close_to_tray_hint'),
 									control: traySwitch
+								})}
+								{@render row({
+									title: "Fast Start (Pre-warm connection)",
+									desc: "Uses more RAM on startup to make the first download/play instantaneous",
+									control: fastStartSwitch
 								})}
 								{@render row({
 									title: t('settings.general.track_notifications'),
@@ -1051,6 +1069,7 @@
 
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}
 {#snippet traySwitch()}<Switch checked={trayOn} onCheckedChange={setTray} />{/snippet}
+{#snippet fastStartSwitch()}<Switch checked={fastStartOn} onCheckedChange={setFastStart} />{/snippet}
 {#snippet trackNotificationsSwitch()}<Switch
 		checked={trackNotificationsOn}
 		onCheckedChange={setTrackNotifications}
