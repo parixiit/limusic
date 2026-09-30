@@ -639,7 +639,13 @@ impl Presence {
         // Unlike the Gateway, the IPC client accepts a plain https URL here and proxies it itself —
         // no `external-assets` round-trip. Artwork is best-effort: no thumbnail is just a
         // text-only presence.
-        if let Some(url) = track.thumbnail.clone().filter(|_| cfg.cover) {
+        let mut thumb_url = track.thumbnail.clone();
+        if let Some(u) = &thumb_url {
+            if !u.starts_with("http://") && !u.starts_with("https://") {
+                thumb_url = Some(format!("https://i.ytimg.com/vi/{}/mqdefault.jpg", track.video_id));
+            }
+        }
+        if let Some(url) = thumb_url.filter(|_| cfg.cover) {
             let mut assets = activity::Assets::new().large_image(url);
             if let Some(line3) = text_for(&cfg.line3, &track) {
                 assets = assets.large_text(field(&line3));
