@@ -8,6 +8,7 @@ mod commands;
 mod db;
 mod diagnostics;
 mod discord;
+pub mod download;
 mod hotkeys;
 mod http;
 mod lastfm;
@@ -602,7 +603,8 @@ pub fn run() {
                             st.it.set_visitor_data(Some(vd.clone()));
                             st.db.set_setting("visitor_data", &vd);
                             tracing::info!("visitorData bootstrapped (background)");
-                            potoken.prewarm(&vd).await;
+                            let force_minter = st.db.get_setting("fast_start").as_deref() == Some("true");
+                            potoken.prewarm(&vd, force_minter).await;
                         }
                         Err(e) => {
                             tracing::warn!(error = %e, "visitorData bootstrap failed (continuing)")
@@ -675,9 +677,11 @@ pub fn run() {
             }
             if let Some(vd) = visitor_for_prewarm {
                 let potoken = potoken.clone();
+                let db_clone = db.clone();
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(Duration::from_millis(2500)).await;
-                    potoken.prewarm(&vd).await;
+                    let force_minter = db_clone.get_setting("fast_start").as_deref() == Some("true");
+                    potoken.prewarm(&vd, force_minter).await;
                 });
             }
             // Mint-and-destroy policy (Phase-0 decision), now applied to the BotGuard V8 isolate
@@ -707,6 +711,10 @@ pub fn run() {
                     }
                 });
             }
+
+            // Ensure every .m4a file in the offline directory has a row in the DB.
+            // This self-heals after a DB reset or before the tracking column existed.
+            crate::download::sync_offline_from_disk(app.handle(), &db);
 
             // Hand the frame to the compositor when the user asked for it (issue #65). The window
             // is created undecorated, so this is the one place that reverses it; macOS never gets
@@ -857,6 +865,11 @@ pub fn run() {
             commands::diagnostics_summary,
             commands::save_diagnostics,
             commands::log_ui,
+            commands::download_track,
+            commands::export_track,
+            commands::get_offline_tracks,
+            commands::delete_offline_track,
+            commands::is_track_offline,
         ])
         .on_window_event(|window, event| {
             // Close-to-tray: ✕ hides the main window and playback keeps running; real quit is
