@@ -186,7 +186,19 @@ impl Orchestrator {
         quality: AudioQuality,
         disabled: &HashSet<String>,
     ) -> Result<PlaybackData, ResolveError> {
-        let prefer_high = matches!(quality, AudioQuality::High | AudioQuality::Auto);
+        self.resolve_with_codec(video_id, is_upload, quality, disabled, None).await
+    }
+
+    /// Resolve a videoId to a stream, optionally requesting a specific codec (e.g. "mp4a" for M4A export).
+    pub async fn resolve_with_codec(
+        &self,
+        video_id: &str,
+        is_upload: bool,
+        quality: AudioQuality,
+        disabled: &HashSet<String>,
+        prefer_codec: Option<&str>,
+    ) -> Result<PlaybackData, ResolveError> {
+        let prefer_high = prefer_codec.is_none() && matches!(quality, AudioQuality::High | AudioQuality::Auto);
         let logged_in = self.it.is_logged_in();
         let visitor = self.it.visitor_data();
         // An upload only streams to an authenticated client, so it gets its own chain and never
@@ -348,7 +360,14 @@ impl Orchestrator {
 
             let Some(streaming) = resp.streaming_data.as_ref() else { continue };
             let Some(expires) = streaming.expires_in_seconds else { continue };
-            let Some(format) = find_format(streaming, quality) else { continue };
+            let format_choice = if let Some(codec) = prefer_codec {
+                streaming.adaptive_formats.iter().find(|f| f.is_audio() && f.mime_type.contains(codec))
+                    .or_else(|| streaming.formats.iter().flatten().find(|f| f.is_audio() && f.mime_type.contains(codec)))
+                    .or_else(|| find_format(streaming, quality))
+            } else {
+                find_format(streaming, quality)
+            };
+            let Some(format) = format_choice else { continue };
             if audio_config_loudness.is_none() {
                 audio_config_loudness = main_loudness(&resp);
             }

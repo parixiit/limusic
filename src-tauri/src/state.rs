@@ -1117,6 +1117,16 @@ impl AppState {
                 ResolveError::LocalMissing(path.to_owned())
             });
         }
+        // If track is downloaded for offline, play directly from disk at 0ms latency.
+        if let Ok(path) = crate::download::offline_track_path(&self.app, video_id) {
+            if path.is_file() {
+                let path_str = path.to_string_lossy().to_string();
+                if let Ok(mut data) = crate::local::playback_data(video_id, &path_str) {
+                    data.stream_client = "offline".to_string();
+                    return Ok(data);
+                }
+            }
+        }
         // Latency cache first (context/11) — honor expiry, never a source of truth.
         //
         // The URL has to outlive the *track*, not just the load. googlevideo keeps serving a
@@ -1191,6 +1201,13 @@ impl AppState {
             );
         }
         Ok(data)
+    }
+
+    /// Resolve an audio stream for downloading/exporting.
+    pub async fn resolve_for_download(&self, video_id: &str, prefer_codec: Option<&str>) -> Result<crate::orchestrator::PlaybackData, crate::orchestrator::ResolveError> {
+        self.orchestrator
+            .resolve_with_codec(video_id, false, self.quality(), &self.disabled_clients(), prefer_codec)
+            .await
     }
 
     /// Start a fresh queue from one track (a search-result click), then hydrate the radio via
