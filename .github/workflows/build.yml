@@ -116,7 +116,12 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""}}'
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""}}'
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
+            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""},"plugins":{"updater":{"pubkey":""}}}'
+          fi
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -198,7 +203,12 @@ jobs:
           NO_STRIP: "true"
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
-          tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""}}'
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""}}'
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
+            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""},"plugins":{"updater":{"pubkey":""}}}'
+          fi
           if [ -f "scripts/fix-appdir-tls.sh" ]; then
             chmod +x scripts/fix-appdir-tls.sh
             ./scripts/fix-appdir-tls.sh || true
@@ -242,3 +252,4 @@ jobs:
           draft: false
           prerelease: false
           generate_release_notes: true
+
