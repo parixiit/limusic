@@ -120,7 +120,7 @@ jobs:
             tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""}}'
           else
             echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
-            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""},"plugins":{"updater":{"pubkey":""}}}'
+            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
           fi
 
       - name: Upload Windows artifacts
@@ -207,7 +207,7 @@ jobs:
             tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""}}'
           else
             echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
-            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""},"plugins":{"updater":{"pubkey":""}}}'
+            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
           fi
           if [ -f "scripts/fix-appdir-tls.sh" ]; then
             chmod +x scripts/fix-appdir-tls.sh
