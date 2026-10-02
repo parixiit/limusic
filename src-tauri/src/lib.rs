@@ -297,12 +297,23 @@ pub fn run() {
             Ok(b) => b.split(',').next() == Some("x11"),
             Err(_) => std::env::var_os("WAYLAND_DISPLAY").is_none(),
         };
+        let on_wayland = match std::env::var("GDK_BACKEND") {
+            Ok(b) => b.split(',').next() == Some("wayland"),
+            Err(_) => std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        };
+
         if on_x11
             && std::path::Path::new("/dev/nvidiactl").exists()
             && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
             && std::env::var_os("WEBKIT_DMABUF_RENDERER_FORCE_SHM").is_none()
         {
             std::env::set_var("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1");
+        }
+
+        if on_wayland && std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none() {
+            // Fixes WebKitWebProcess crashes (SIGSEGV/SIGABRT) on Arch/Hyprland and other wlroots
+            // compositors (issue #289).
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         }
     }
 
