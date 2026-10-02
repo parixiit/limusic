@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { fade, fly } from 'svelte/transition';
 	import { cubicOut } from 'svelte/easing';
-	import { beforeNavigate } from '$app/navigation';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import { Maximize01Icon, Minimize01Icon } from '@hugeicons/core-free-icons';
 	import LyricsView from './LyricsView.svelte';
@@ -11,13 +10,6 @@
 	let { onClose, queueOpen = false }: { onClose: () => void; queueOpen?: boolean } = $props();
 
 	let expanded = $state(false);
-
-	// Expanded, the panel covers the page — so navigating anywhere means the user wants to see that
-	// page, not the lyrics. The docked panel sits beside the content, so it stays put.
-	// beforeNavigate (not a pathname effect) so clicking the tab you're already on also closes it.
-	beforeNavigate(() => {
-		if (expanded) onClose();
-	});
 </script>
 
 <!-- Same overlay pattern as QueuePanel: always over the content, with a dismiss scrim below lg. When
