@@ -1085,47 +1085,47 @@ fn parse_two_row_item(node: &Value) -> Option<BrowseItem> {
             explicit: is_explicit(node),
         });
     }
-    // Playlist via watchPlaylistEndpoint (some carousels expose the raw playlistId).
-    if let Some(pid) = nav
-        .and_then(|n| n.get("watchPlaylistEndpoint"))
-        .and_then(|w| w.get("playlistId"))
+    // A browseEndpoint → playlist/album/artist by browseId prefix.
+    if let Some(browse_id) = nav
+        .and_then(|n| n.get("browseEndpoint"))
+        .and_then(|b| b.get("browseId"))
         .and_then(Value::as_str)
     {
+        let (kind, id) = browse_target(browse_id);
+        // The subtitle's artist field, links only: `artist_runs` cuts at the "•" separators and drops
+        // the type label, so "Album • Foo • 2024" yields the linked "Foo" and a card that links nobody
+        // yields nothing. It is the only structured identity an album card carries, and without it a
+        // blocked artist's albums keep turning up in generated carousels (plan 046).
+        let runs = node.get("subtitle").and_then(|s| s.get("runs")).and_then(Value::as_array);
         return Some(BrowseItem {
-            kind: "playlist",
-            id: format!("VL{pid}"),
+            kind,
+            id,
             title,
             subtitle,
             thumbnail,
             duration: None,
             album_id: None,
-            artist_runs: Vec::new(),
+            artist_runs: runs.map(|r| artist_runs(r)).unwrap_or_default(),
             play_count: None,
             is_video: false,
             is_upload: false,
             explicit: is_explicit(node),
         });
     }
-    // Otherwise a browseEndpoint → playlist/album/artist by browseId prefix.
-    let browse_id = nav
-        .and_then(|n| n.get("browseEndpoint"))
-        .and_then(|b| b.get("browseId"))
+    // Playlist via watchPlaylistEndpoint (some carousels expose the raw playlistId).
+    let pid = nav
+        .and_then(|n| n.get("watchPlaylistEndpoint"))
+        .and_then(|w| w.get("playlistId"))
         .and_then(Value::as_str)?;
-    let (kind, id) = browse_target(browse_id);
-    // The subtitle's artist field, links only: `artist_runs` cuts at the "•" separators and drops
-    // the type label, so "Album • Foo • 2024" yields the linked "Foo" and a card that links nobody
-    // yields nothing. It is the only structured identity an album card carries, and without it a
-    // blocked artist's albums keep turning up in generated carousels (plan 046).
-    let runs = node.get("subtitle").and_then(|s| s.get("runs")).and_then(Value::as_array);
     Some(BrowseItem {
-        kind,
-        id,
+        kind: "playlist",
+        id: format!("VL{pid}"),
         title,
         subtitle,
         thumbnail,
         duration: None,
         album_id: None,
-        artist_runs: runs.map(|r| artist_runs(r)).unwrap_or_default(),
+        artist_runs: Vec::new(),
         play_count: None,
         is_video: false,
         is_upload: false,
