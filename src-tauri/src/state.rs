@@ -3793,16 +3793,26 @@ fn track_to_song(t: &Track) -> SongItem {
     }
 }
 
-/// Where an "Add to queue" lands: at the back of the manual block, so it plays after everything
-/// already queued by hand and before the playing context, its radio, and autoplay's filler. The
-/// tail of a playlist is not where "add to queue" belongs — a radio has no end at all, so a track
-/// queued behind one is never heard, and a 50-track playlist buries it just as effectively.
+/// Where an "Add to queue" lands:
+/// - If the queue is an endless radio (`q.radio == true`), it lands right after the manual
+///   block / current track so it isn't buried behind endless algorithmic tracks.
+/// - If playing an album or playlist context, it lands after the current album/playlist
+///   context tracks (and any prior queued tracks), but before any trailing `autoplay` filler.
 fn enqueue_at(q: &QueueState) -> usize {
-    let mut at = (q.current + 1).min(q.items.len());
-    while q.items.get(at).map(|i| i.queued || i.queued_end).unwrap_or(false) {
-        at += 1;
+    if q.radio {
+        let mut at = (q.current + 1).min(q.items.len());
+        while q.items.get(at).map(|i| i.queued || i.queued_end).unwrap_or(false) {
+            at += 1;
+        }
+        at
+    } else {
+        // Find where trailing autoplay tracks start, if any; otherwise append to end of queue.
+        let mut at = (q.current + 1).min(q.items.len());
+        while at < q.items.len() && !q.items[at].autoplay {
+            at += 1;
+        }
+        at
     }
-    at
 }
 
 /// Drop every copy of `ids` already in the queue, so a manual add moves the track instead of
@@ -4788,30 +4798,39 @@ mod tests {
         assert_eq!(items.len(), 2);
     }
 
-    // "Add to queue" lands at the back of the manual block, ahead of the context — the bug in #26
-    // was it landing at the very end, where a radio or a long playlist buries it forever.
+    // "Add to queue" lands after the current playlist/album context (before autoplay filler),
+    // and for an endless radio it lands right after the manual block (so it isn't buried).
     #[test]
-    fn add_to_queue_goes_behind_the_manual_block_but_ahead_of_the_context() {
+    fn add_to_queue_lands_after_playlist_context_and_ahead_of_autoplay_or_radio() {
         let queued = |id: &str| innertube::SongItem { queued: true, ..song(id, None) };
         let added = |id: &str| innertube::SongItem { queued_end: true, ..song(id, None) };
+        let auto = |id: &str| innertube::SongItem { autoplay: true, ..song(id, None) };
 
-        // Plain playlist queue → straight behind the playing track.
+        // Plain playlist queue → appends after the playlist tracks.
         let q = QueueState {
             items: vec![song("a", None), song("b", None), song("c", None)],
             current: 0,
             ..QueueState::default()
         };
-        assert_eq!(enqueue_at(&q), 1);
+        assert_eq!(enqueue_at(&q), 3);
 
-        // Behind a waiting "Play next" block and behind earlier adds, never inside either.
+        // Playlist with trailing autoplay filler → inserts before autoplay filler.
         let q = QueueState {
-            items: vec![song("a", None), queued("mine"), added("x1"), song("b", None)],
+            items: vec![song("a", None), song("b", None), auto("r1"), auto("r2")],
             current: 0,
             ..QueueState::default()
         };
-        assert_eq!(enqueue_at(&q), 3);
+        assert_eq!(enqueue_at(&q), 2);
 
-        // A radio is no different: the add is heard next instead of after an endless feed.
+        // Behind a waiting "Play next" block, playlist context, and prior adds.
+        let q = QueueState {
+            items: vec![song("a", None), queued("mine"), song("b", None), added("x1"), auto("r1")],
+            current: 0,
+            ..QueueState::default()
+        };
+        assert_eq!(enqueue_at(&q), 4);
+
+        // A radio lands right after current / manual adds so the add is heard next instead of after an endless feed.
         let q = QueueState {
             items: vec![song("r1", None), song("r2", None), song("r3", None)],
             current: 0,
@@ -4819,6 +4838,15 @@ mod tests {
             ..QueueState::default()
         };
         assert_eq!(enqueue_at(&q), 1);
+
+        // Radio with existing manual adds → after existing manual adds.
+        let q = QueueState {
+            items: vec![song("r1", None), queued("mine"), added("x1"), song("r2", None)],
+            current: 0,
+            radio: true,
+            ..QueueState::default()
+        };
+        assert_eq!(enqueue_at(&q), 3);
 
         // Nothing after the playing track: appended, not out of bounds.
         let q = QueueState { items: vec![song("a", None)], current: 0, ..QueueState::default() };
