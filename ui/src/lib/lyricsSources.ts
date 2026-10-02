@@ -29,7 +29,9 @@ export const KIND_LABEL: Record<LyricsKind, TranslationKey> = {
 /** What a set of lyrics actually turned out to be. */
 export function lyricsKind(l: Lyrics): LyricsKind {
 	if (l.instrumental) return 'instrumental';
-	if (!l.synced) return 'plain';
+	if (!l.synced || !l.lines.some((line) => line.time_ms !== undefined && line.time_ms !== null)) {
+		return 'plain';
+	}
 	return l.lines.some((line) => line.words?.length) ? 'words' : 'synced';
 }
 

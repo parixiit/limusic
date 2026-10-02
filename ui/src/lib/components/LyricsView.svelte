@@ -124,9 +124,14 @@
 			});
 	});
 
+	// Synced only if explicitly marked synced AND having at least one valid line timestamp.
+	const isSynced = $derived(
+		Boolean(lyrics?.synced && lyrics.lines.some((l) => l.time_ms !== undefined && l.time_ms !== null))
+	);
+
 	// Last synced line whose cue has passed (lines arrive sorted by time).
 	const activeIndex = $derived.by(() => {
-		if (!lyrics?.synced) return -1;
+		if (!isSynced || !lyrics) return -1;
 		const currentMs = posMs;
 		let i = -1;
 		for (let j = 0; j < lyrics.lines.length; j++) {
@@ -193,7 +198,7 @@
 	 *  mounted lyrics panel, on every track, for the whole session, which meant the app never
 	 *  reached an idle frame. */
 	const needsFrameClock = $derived(
-		!!lyrics?.synced && lyrics.lines.some((l) => (l.words?.length ?? 0) > 0)
+		isSynced && (lyrics?.lines.some((l) => (l.words?.length ?? 0) > 0) ?? false)
 	);
 
 	$effect(() => {
@@ -246,7 +251,7 @@
 		</div>
 	{:else if lyrics?.instrumental}
 		<p class="py-8 text-center text-lg text-muted-foreground">{t('lyrics.instrumental')} ♪</p>
-	{:else if lyrics && lyrics.synced}
+	{:else if lyrics && isSynced}
 		<!-- Bottom padding only, so the last lines can still center-scroll. A matching top padding
 		     would put half a panel of void above line 1, which is all you see until the song has
 		     played far enough to scroll past it (issue #201). Instead the opening lines sit at the

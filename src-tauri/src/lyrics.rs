@@ -341,15 +341,15 @@ async fn youtube_get(
     if let Some(client) = state.clients.get(innertube::LYRICS_TIMED_CLIENT) {
         match state.it.lyrics_timed(client, &bid).await {
             Ok(lines) if !lines.is_empty() => {
-                return Ok(Some(Lyrics {
-                    source: "YouTube Music".into(),
-                    synced: true,
-                    lines: lines
-                        .into_iter()
-                        .map(|l| LyricLine::simple(Some(l.time_ms), l.text))
-                        .collect(),
-                    ..Default::default()
-                }));
+                let parsed_lines = lines
+                    .into_iter()
+                    .map(|l| LyricLine::simple(Some(l.time_ms), l.text))
+                    .collect();
+                if let Some(lyrics) = from_parsed("YouTube Music", parsed_lines) {
+                    if lyrics.synced {
+                        return Ok(Some(lyrics));
+                    }
+                }
             }
             Ok(_) => {}
             Err(e) => tracing::debug!(error = %e, "lyrics: timed browse failed"),
@@ -528,14 +528,10 @@ fn lrclib_to_lyrics(t: &LrclibTrack) -> Option<Lyrics> {
         return Some(Lyrics { source: "LRCLIB".into(), instrumental: true, ..Default::default() });
     }
     if let Some(lrc) = t.synced_lyrics.as_deref().filter(|s| !s.trim().is_empty()) {
-        let lines = parse_lrc(lrc);
-        if !lines.is_empty() {
-            return Some(Lyrics {
-                source: "LRCLIB".into(),
-                synced: true,
-                lines,
-                ..Default::default()
-            });
+        if let Some(lyrics) = from_parsed("LRCLIB", parse_lrc(lrc)) {
+            if lyrics.synced {
+                return Some(lyrics);
+            }
         }
     }
     plain_from_text(t.plain_lyrics.as_deref(), "LRCLIB")
