@@ -1,4 +1,4 @@
-name: Build All (Windows & Linux)
+name: Build All (Windows, Linux & macOS)
 
 on:
   workflow_dispatch:
@@ -223,10 +223,122 @@ jobs:
             target/release/bundle/deb/*.deb
           if-no-files-found: error
 
+  build-macos:
+    name: Build macOS (Apple Silicon / aarch64)
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bake in player-cipher registry
+        run: |
+          FARADAY=https://raw.githubusercontent.com/MetrolistGroup/faraday/master/registry/player_configs.json
+          ZEMER=https://raw.githubusercontent.com/ZemerTeam/zemer-cipher/master/library/src/main/assets/player_configs.json
+          tmp="$(mktemp)"
+          for url in "$FARADAY" "$ZEMER"; do
+            if curl -fsSL --max-time 30 "$url" -o "$tmp" && jq -e '(.players | objects | length) > 0' "$tmp" >/dev/null 2>&1; then
+              cp "$tmp" src-tauri/cipher_configs.json
+              echo "bundled player configs from $url"
+              exit 0
+            fi
+          done
+          echo "::warning::no player-cipher registry reachable"
+
+      - name: Install dependencies (mpv + dylibbundler)
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ENV_HINTS: "1"
+        run: |
+          brew install mpv dylibbundler
+          PREFIX="$(brew --prefix)"
+          echo "LIBRARY_PATH=$PREFIX/lib" >> "$GITHUB_ENV"
+          echo "BREW_PREFIX=$PREFIX" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: cd ui && pnpm install --frozen-lockfile
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Install Tauri CLI
+        run: npm install -g "@tauri-apps/cli@2.11.5"
+
+      - name: Build frontend
+        run: cd ui && pnpm build
+
+      - name: Build macOS App
+        run: |
+          tauri build --bundles app --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Bundle dependencies into .app
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          APP=target/release/bundle/macos/limusic.app
+          BIN="$APP/Contents/MacOS/$(plutil -extract CFBundleExecutable raw "$APP/Contents/Info.plist")"
+          dylibbundler -cd -of -b -x "$BIN" -d "$APP/Contents/Frameworks" -p "@executable_path/../Frameworks" -s "$BREW_PREFIX/lib" < /dev/null
+
+      - name: Deduplicate rpaths & re-sign app
+        run: |
+          set -euo pipefail
+          APP=target/release/bundle/macos/limusic.app
+          find "$APP" -type f -print0 | while IFS= read -r -d '' f; do
+            otool -l "$f" 2>/dev/null \
+              | awk '/LC_RPATH/{g=1} g&&/^[[:space:]]*path /{sub(/^[[:space:]]*path /, ""); sub(/ \(offset [0-9]+\)$/, ""); print; g=0}' \
+              | sort | uniq -c | while read -r n rp; do
+                  [ "$n" -gt 1 ] || continue
+                  i=1
+                  while [ "$i" -lt "$n" ]; do
+                    install_name_tool -delete_rpath "$rp" "$f"
+                    i=$((i + 1))
+                  done
+                done
+          done
+          codesign --force --deep --sign - "$APP"
+
+      - name: Build DMG
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          APP=target/release/bundle/macos/limusic.app
+          DMG="target/release/bundle/dmg/limusic_${VERSION}_aarch64.dmg"
+          STAGE="$(mktemp -d)/Limusic"
+          mkdir -p "$STAGE" "$(dirname "$DMG")"
+          ditto "$APP" "$STAGE/limusic.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "Limusic" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: limusic-macos-aarch64
+          path: |
+            target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
   publish-release:
     name: Publish GitHub Release (on tag)
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [build-windows, build-linux]
+    needs: [build-windows, build-linux, build-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -243,13 +355,21 @@ jobs:
           name: limusic-linux-x86_64
           path: release-artifacts/linux
 
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: limusic-macos-aarch64
+          path: release-artifacts/macos
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-artifacts/windows/*
-            release-artifacts/linux/*
+            release-artifacts/windows/**/*
+            release-artifacts/linux/**/*
+            release-artifacts/macos/**/*
           draft: false
           prerelease: false
           generate_release_notes: true
+
 
