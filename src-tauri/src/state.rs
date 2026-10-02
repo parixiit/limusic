@@ -658,43 +658,37 @@ impl AppState {
             return Ok(SignInOutcome::Complete);
         }
 
-        // A missing/unreadable list must not replace a previously selected channel with Google's
-        // current default. Revalidate the stored server-issued id directly; account_menu either
-        // confirms it and refreshes metadata, or the login fails closed.
-        //
-        // Only when the list is empty. A list that came back and does *not* contain the persisted
-        // id means these cookies belong to a different Google account, so the stored id is theirs
-        // to drop: forcing it here would delegate account A's channel onto account B's cookie and
-        // fail every sign-in until the user signs out first.
-        if identities.is_empty() {
-            if let Some(data_sync_id) = persisted_id.as_deref() {
-                let identity = persisted_identity
-                    .as_ref()
-                    .and_then(SelectedIdentity::as_account_identity)
-                    .unwrap_or_else(|| AccountIdentity {
-                        name: String::new(),
-                        handle: None,
-                        email: None,
-                        thumbnail: None,
-                        channel_id: None,
-                        data_sync_id: data_sync_id.to_owned(),
-                        is_selected: false,
-                    });
-                self.activate_identity(
-                    &identity,
-                    persisted_identity.as_ref().is_some_and(|saved| saved.has_multiple_identities),
-                    client,
-                )
-                .await
-                .inspect_err(|_| {
-                    self.restore_auth_transport(
-                        previous_cookie.clone(),
-                        previous_data_sync_id.clone(),
-                    );
-                    self.restore_session_cookie_setting(previous_cookie.as_deref());
-                })?;
-                return Ok(SignInOutcome::Complete);
-            }
+        // A missing/unreadable list (or a list that mysteriously omitted our saved channel) must not
+        // replace a previously selected channel with Google's current default. Revalidate the stored
+        // server-issued id directly; account_menu either confirms it and refreshes metadata, or the
+        // login fails closed.
+        if let Some(data_sync_id) = persisted_id.as_deref() {
+            let identity = persisted_identity
+                .as_ref()
+                .and_then(SelectedIdentity::as_account_identity)
+                .unwrap_or_else(|| AccountIdentity {
+                    name: String::new(),
+                    handle: None,
+                    email: None,
+                    thumbnail: None,
+                    channel_id: None,
+                    data_sync_id: data_sync_id.to_owned(),
+                    is_selected: false,
+                });
+            self.activate_identity(
+                &identity,
+                persisted_identity.as_ref().is_some_and(|saved| saved.has_multiple_identities),
+                client,
+            )
+            .await
+            .inspect_err(|_| {
+                self.restore_auth_transport(
+                    previous_cookie.clone(),
+                    previous_data_sync_id.clone(),
+                );
+                self.restore_session_cookie_setting(previous_cookie.as_deref());
+            })?;
+            return Ok(SignInOutcome::Complete);
         }
 
         if identities.len() == 1 {
@@ -2034,7 +2028,6 @@ impl AppState {
             self.emit_error(&item.video_id, &e.to_string());
             return false;
         }
-        let _ = self.player.play();
         // Items played from cards/radio can arrive without a duration; the player response knows
         // the exact length of the cut we stream. Backfill before emitting — lyrics matching keys
         // on it (a wrong-cut LRCLIB match plays lyrics seconds off the audio).
