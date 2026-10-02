@@ -1043,10 +1043,12 @@ fn quoted(arg: &str) -> String {
 /// poison the load.
 fn loadfile_args(url: &str, start: Option<f64>) -> Vec<String> {
     let mut args = vec![quoted(url), "replace".to_owned()];
+    let mut opts = vec!["pause=no".to_owned()];
     if let Some(pos) = start.filter(|p| p.is_finite() && *p > 0.0) {
-        args.push("-1".to_owned());
-        args.push(quoted(&format!("start={pos}")));
+        opts.push(format!("start={pos}"));
     }
+    args.push("-1".to_owned());
+    args.push(quoted(&opts.join(",")));
     args
 }
 
@@ -1217,22 +1219,22 @@ mod tests {
 
     #[test]
     fn loadfile_start_is_a_file_local_option() {
-        // No start: the plain 2-argument loadfile, unchanged.
-        assert_eq!(loadfile_args("u", None), vec!["\"u\"", "replace"]);
+        // No start: the plain 2-argument loadfile, unchanged (wait, now it has pause=no).
+        assert_eq!(loadfile_args("u", None), vec!["\"u\"", "replace", "-1", "\"pause=no\""]);
         // Anything at or below 0 is the default position, so it is not worth the option, and a
         // NaN or infinity must never reach mpv.
         for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
-            assert_eq!(loadfile_args("u", Some(bad)), vec!["\"u\"", "replace"], "start={bad}");
+            assert_eq!(loadfile_args("u", Some(bad)), vec!["\"u\"", "replace", "-1", "\"pause=no\""], "start={bad}");
         }
         // The `index` positional has to be present for `options` to be read.
         assert_eq!(
             loadfile_args("u", Some(605.0)),
-            vec!["\"u\"", "replace", "-1", "\"start=605\""]
+            vec!["\"u\"", "replace", "-1", "\"pause=no,start=605\""]
         );
         // Fractional resume positions are what `state::pending_seek` actually carries.
         assert_eq!(
             loadfile_args("u", Some(8.6155624669999)),
-            vec!["\"u\"", "replace", "-1", "\"start=8.6155624669999\""]
+            vec!["\"u\"", "replace", "-1", "\"pause=no,start=8.6155624669999\""]
         );
     }
 
