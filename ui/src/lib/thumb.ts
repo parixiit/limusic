@@ -6,6 +6,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 // i.ytimg.com path-variant thumbs, where other sizes can 404) is returned unchanged.
 export function thumb(url: string | undefined | null, px: number): string | undefined {
 	if (!url) return undefined;
+	if (url.includes(',')) return url.split(',').map((u) => thumb(u, px)).join(',');
 	// Local library artwork is a path on this machine, not a URL. The webview can't open a bare
 	// path, so hand it through Tauri's asset protocol. Kept here rather than at the command
 	// boundary so what gets stored (queue, Shortcuts) stays the real path — which is also what
