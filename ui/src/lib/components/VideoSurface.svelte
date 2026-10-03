@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { forgetVideoUrl, playback, videoUrlFor } from '$lib/player.svelte';
+	import { forgetVideoUrl, playback, prefs, videoUrlFor } from '$lib/player.svelte';
 	import { canVideo, hasVideo, registerVideo, showVideo, video } from '$lib/video.svelte';
 
 	// --- Music videos (plan 031) -------------------------------------------------------------
@@ -338,6 +338,23 @@
 		// `dormant` releases it: see IDLE_GRACE. `video.url` is kept, so waking re-attaches the
 		// same stream without another resolve.
 		const u = hasVideo() && !dormant ? video.url : null;
+		// The ambient light reads frames into WebGL, which refuses a picture from another origin (the
+		// proxy is one) unless it was loaded with CORS, and videoproxy.rs answers that. Only while
+		// the setting is on, so everyone else's video keeps the path it always had. Turning it on
+		// mid-video reloads the element, and the converge phase brings it back onto the music the way
+		// it does after a track change; turning it off can wait for the next load.
+		const cors = prefs.ambient ? 'anonymous' : null;
+		if (el.crossOrigin !== cors) {
+			el.crossOrigin = cors;
+			if (cors && u && el.getAttribute('src') === u) {
+				synced = false;
+				syncSeeks = 0;
+				syncStart = 0;
+				lastSeek = 0;
+				el.load();
+				return;
+			}
+		}
 		// Setting src to the same string would still reload the element, so only write a change.
 		if (u && el.getAttribute('src') !== u) el.setAttribute('src', u);
 		else if (!u && el.hasAttribute('src')) {

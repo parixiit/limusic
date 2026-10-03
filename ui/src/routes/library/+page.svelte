@@ -12,6 +12,7 @@
 		Add01Icon,
 		CloudSyncIcon,
 		CloudUploadIcon,
+		Download01Icon,
 		DriveIcon,
 		MusicNote01Icon,
 		MusicNoteSquare02Icon,
@@ -23,6 +24,7 @@
 	import * as Tabs from '$lib/components/ui/tabs';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import LibrarySongs from '$lib/components/LibrarySongs.svelte';
+	import LibraryDownloads from '$lib/components/LibraryDownloads.svelte';
 	import LocalMusic from '$lib/components/LocalMusic.svelte';
 	import MediaCard from '$lib/components/MediaCard.svelte';
 	import MediaCardSkeleton from '$lib/components/MediaCardSkeleton.svelte';
@@ -200,6 +202,9 @@
 			<Tabs.Trigger value="uploads">
 				<HugeiconsIcon icon={CloudUploadIcon} class="h-4 w-4" /> {t('library.uploads_tab')}
 			</Tabs.Trigger>
+			<Tabs.Trigger value="downloads">
+				<HugeiconsIcon icon={Download01Icon} class="h-4 w-4" /> Downloads
+			</Tabs.Trigger>
 			<Tabs.Trigger value="local">
 				<HugeiconsIcon icon={DriveIcon} class="h-4 w-4" /> {t('library.local_tab')}
 			</Tabs.Trigger>
@@ -277,7 +282,8 @@
 			{/if}
 		</Tabs.Content>
 		<Tabs.Content value="local">{#if tab === 'local'}<LocalMusic />{/if}</Tabs.Content>
-		{#if tab === 'local' || tab === 'songs' || tab === 'uploads'}
+		<Tabs.Content value="downloads">{#if tab === 'downloads'}<LibraryDownloads />{/if}</Tabs.Content>
+		{#if tab === 'local' || tab === 'songs' || tab === 'uploads' || tab === 'downloads'}
 			<!-- nothing else: the grid states below have no bearing on these three -->
 		{:else if loading}
 			<div class="card-grid">

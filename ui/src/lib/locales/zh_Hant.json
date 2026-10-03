@@ -164,7 +164,8 @@
 		"add_to_playlist": "新增至播放清單",
 		"pin_to_top": "釘選視窗",
 		"unpin": "取消釘選",
-		"remove_from_this_playlist": "從此播放清單移除"
+		"remove_from_this_playlist": "從此播放清單移除",
+		"back_to": "回到 {title}"
 	},
 	"home": {
 		"good_morning": "讓今天從旋律開始",
@@ -180,10 +181,31 @@
 		"shortcuts_desc": "快速開始聆聽您喜愛的歌曲。拖放卡片到這裡，或從收藏庫中選擇。",
 		"jump_back_in": "接著聆聽",
 		"show_section": "在首頁顯示 {title}",
-		"hide_section": "在首頁隱藏 {title}",
 		"feed_empty": "這裡目前空無一物。",
 		"signed_out_hint": "登入後，首頁會顯示為您打造的播放清單。",
-		"add_to_end": "新增至尾端"
+		"add_to_end": "新增至尾端",
+		"edit_home_desc": "在您修改後，頁面會立即顯示這些更改。",
+		"look": "查看",
+		"card_size": "卡片大小",
+		"card_size_desc": "專輯、播放清單和演出者圖示在首頁的大小。",
+		"card_small": "小",
+		"card_medium": "中",
+		"card_large": "大",
+		"mood_chips": "情緒篩選標籤",
+		"mood_chips_desc": "首頁標題下的篩選按鈕。",
+		"artwork_backdrop": "首頁標題背景",
+		"artwork_backdrop_desc": "將首頁標題設置為播放中的影片或音訊的封面。",
+		"sections": "區塊",
+		"sections_shown": "已顯示 {shown}/{total}",
+		"turn_all_off": "關閉所有",
+		"turn_all_on": "開啟所有",
+		"sections_hint": "拖曳區塊以移動它或使用方向鍵來改變順序。此變更不會影響到隱藏的區塊。",
+		"move_section": "移動 {title}",
+		"moved_section": "{title} 已被移動到 {position}，總共 {total}",
+		"new_section": "新增",
+		"show_new": "顯示新區塊",
+		"show_new_desc": "YouTube 頻道和分類標籤會隨著時間而變化。關閉後，將不會隨著時間變化，直到您重新啟用。",
+		"all_hidden": "這邊一個區塊都沒有。"
 	},
 	"history": {
 		"title": "歷史紀錄",
@@ -218,7 +240,6 @@
 		"empty_album": "這個專輯空無一物。",
 		"play_count": "累積播放 {count} 次",
 		"added_by": "由 {user} 新增",
-		"no_playlists_create": "目前還沒有播放清單，請到收藏庫中新建一個。",
 		"search_playlists": "從播放清單中搜尋…",
 		"no_playlists_hint": "目前還沒有創建播放清單。您可以保存一個播放清單，或者在您的收藏庫中創建一個。",
 		"empty_playlist": "這個播放清單空無一物。",
@@ -245,7 +266,19 @@
 		"no_artists": "目前還沒有儲存的演出者。當您儲存他們的作品就會顯示於此。",
 		"on_repeat": "經常聽的歌曲",
 		"on_repeat_subtitle": "這個月你最常聆聽 {count} 首歌曲",
-		"songs_count": "{count} 首歌曲"
+		"songs_count": "{count} 首歌曲",
+		"delete_playlist_desc": "“{title}” 將從您的 YouTube Music 帳戶中刪除。無法撤銷此操作。",
+		"delete_playlist_desc_local": "“{title}” 將從此裝置上刪除。無法撤銷此操作。",
+		"songs_count_one": "1 首歌",
+		"on_this_device": "此裝置",
+		"on_this_device_tooltip": "在電腦上保存，而不是在 YouTube Music 帳戶上",
+		"local_playlist_subtitle": "此裝置 • {count} 首歌",
+		"local_playlist_subtitle_one": "此裝置 • 1 首歌",
+		"empty_playlist_hint": "在任何歌曲的 … 選單中選擇“添加到播放清單”，即可將歌曲添加到此清單。",
+		"saved_in": "已保存",
+		"saved_in_one": "已保存到 {playlist}",
+		"saved_in_many": "已保存到 {count} 個播放清單",
+		"saved_in_more": "以及 {count} 項更多"
 	},
 	"local": {
 		"scanning": "掃描資料夾中…",
@@ -321,7 +354,13 @@
 			"proxy_hint": "使用自定義 Proxy Server 轉發所有網路請求。",
 			"proxy_placeholder": "在此輸入 Proxy 位址，範例：http://host:port",
 			"stream_clients": "串流客戶端",
-			"stream_clients_hint": "處理串流資訊時，如果需要跳過某個步驟，可以通過設定環境變數 {var} 來控制。"
+			"stream_clients_hint": "處理串流資訊時，如果需要跳過某個步驟，可以通過設定環境變數 {var} 來控制。",
+			"language_search": "搜尋語言",
+			"language_contribute": "協助翻譯 Limusic",
+			"track_notifications": "歌曲通知",
+			"track_notifications_hint": "當 Limusic 背景運行而有新歌曲開始播放時，顯示通知。",
+			"start_minimized": "開機啟動後隱藏",
+			"start_minimized_hint": "當 Limusic 在開機時啟動，應用程序將保持在背景運行。當使用者手動啟動 Limusic 時，應用程式視窗不會自動隱藏。"
 		},
 		"themes": {
 			"interface_font": "介面字體",
@@ -393,15 +432,21 @@
 			"lastfm_primary_artist_hint": "只紀錄在 Last.fm 上被認可的演出者，這樣您的播放記錄就會顯示在真實的演出者頁面上。以 \"&\" 符號連接的姓名，將保持不變。",
 			"lastfm_primary_strict": "將用 \"&\" 連接的演出者名稱分開，只保留第一個演出者",
 			"lastfm_primary_strict_hint": "“Future & Metro Boomin” 縮寫為“Future”。 帶有 \"&\" 的組合名稱也會被縮寫。",
-			"lyrics_provider": "同步歌詞 (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "獲取與社區同步的歌曲歌詞，適用於正在播放的歌曲。",
 			"crossfade": "淡入淡出",
 			"crossfade_hint": "將每首歌曲的結尾與下一首的開頭連接起來。在歌曲過渡時，同時運行第二個音訊解碼器，這會需要更多的記憶體。",
 			"crossfade_duration": "淡入淡出持續時間",
 			"crossfade_duration_hint": "過渡持續的時間。較短曲目的過渡時間會縮短，因此一個過渡不會在另一個過渡完成之前開始。",
 			"crossfade_seconds": "{secs} 秒",
 			"normalize_volume": "音量標準化",
-			"normalize_volume_hint": "將不同音訊的平均音量調整至相同的目標水準，以避免使用者在切換不同曲目或影片時，需要頻繁手動調整音量。"
+			"normalize_volume_hint": "將不同音訊的平均音量調整至相同的目標水準，以避免使用者在切換不同曲目或影片時，需要頻繁手動調整音量。",
+			"crossfade_lt_paused": "在“共同收聽”房間中，當同時播放兩首歌曲時，很難保證與其他人同步。",
+			"lyrics_sources": "歌詞來源",
+			"lyrics_sources_hint": "由上往下查詢。自動同步來自任何來源的歌詞，並從上一個來源提取純文本，而已關閉的來源則不會被查詢。",
+			"lyrics_sources_reset": "恢復至默認排序",
+			"lyrics_move_source": "移動 {name}",
+			"lyrics_moved_source": "{name} 已被移動至 {position}，總共 {total}",
+			"lyrics_use_source": "使用 {name}",
+			"lyrics_sources_none": "所有歌詞來源已被關閉，因此沒有找到歌詞。"
 		},
 		"data": {
 			"clear_cache": "清除縮圖與串流的快取",
@@ -432,7 +477,10 @@
 			"report_issue_button": "回報",
 			"kofi": "請我喝杯咖啡",
 			"kofi_hint": "Limusic 始終免費，如果您願意，可以通過 Ko-fi 平臺進行斗內。",
-			"kofi_button": "前往斗內"
+			"kofi_button": "前往斗內",
+			"rollback_available": "此版本已回退至 {version}，這是最新已知的穩定版本。",
+			"beta": "測試版本",
+			"beta_hint": "提前幾天就能獲得最新的版本。這些版本經過了較少的測試。關閉此功能，可以確保您當前使用的版本在下一次常規更新發布後仍然可用。"
 		},
 		"discord": {
 			"enable": "Rich Presence",
@@ -544,7 +592,8 @@
 			"public_off": "只有您可以看到。",
 			"artwork_note": "封面會立即顯示，並在背景上傳到 YouTube Music。建議使用正方形 JPEG 或 PNG 格式。",
 			"pick_artwork": "選擇播放清單封面",
-			"image_filter": "圖片"
+			"image_filter": "圖片",
+			"local_artwork_note": "所有圖像都將存儲在電腦上。建議使用正方形的 JPEG 或 PNG 格式。"
 		},
 		"share": {
 			"title": "分享",
@@ -595,18 +644,16 @@
 			"host_tab": "發起活動",
 			"invite_code": "邀請碼",
 			"invite_placeholder": "在此貼上活動邀請碼",
-			"invite_hint": "邀請碼中包含伺服器地址，無需其他設置。",
+			"invite_hint": "邀請碼中已包含伺服器地址，無需其他設置。",
 			"your_name": "顯示名稱",
 			"your_name_placeholder": "在此輸入您的大名",
-			"join_button": "加入活動",
-			"sync_server": "同步伺服器",
+			"join_button": "加入房間",
 			"sync_server_placeholder": "在此輸入同步伺服器地址",
-			"sync_server_hint": "您的個人伺服器（例如：Tailscale Funnel URL）。請保存下來，這將於後續使用。",
-			"start_button": "開始共同收聽活動",
+			"sync_server_hint": "只有在您自己運行同步服務器的情況下，才需要進行此操作。",
+			"start_button": "創建房間",
 			"hosting": "正在主持",
 			"listening": "正在收聽",
 			"copy_invite": "複製邀請碼",
-			"invite_copied": "邀請碼已複製，傳送給您的朋友共同收聽",
 			"invite_copy_failed": "複製邀請碼失敗",
 			"join_requests": "加入請求",
 			"in_room": "目前人數 ({count})",
@@ -623,9 +670,29 @@
 			"status_connected": "已連接",
 			"status_disconnected": "已解除連接",
 			"err_enter_name": "請先輸入名稱",
-			"err_enter_server": "請輸入同步伺服器連結",
 			"err_paste_code": "貼上您收到的邀請碼",
-			"err_paste_full_invite": "請貼上主持人的完整邀請碼，其中已包含伺服器地址"
+			"subtitle": "與他人，在同一時間，一同收聽相同的音樂。",
+			"host_blurb": "您會獲得一個邀請碼，分享後參與者就能聽到您正在播放的音樂，並且同步播放。",
+			"share_hint": "將邀請碼發送給你想一同聆聽的人。",
+			"change_server": "更換伺服器",
+			"custom_server": "自定義",
+			"use_default": "使用預設",
+			"approve": "允許進入",
+			"decline": "拒絕",
+			"queue_it": "加入待播清單",
+			"dismiss": "結束",
+			"alone_hint": "目前還沒有其他其他人。請分享邀請碼，讓房間熱鬧起來。",
+			"copy_code": "複製邀請碼",
+			"copied": "已複製"
+		},
+		"new_playlist": {
+			"where": "應該放在哪裡",
+			"account": "YouTube Music",
+			"account_desc": "無論您在哪，登入後即可使用",
+			"device": "此裝置",
+			"device_desc": "無需註冊，在當前電腦上播放",
+			"device_only": "在當前電腦上播放，無需註冊。請登入 YouTube Music，以創建播放清單。",
+			"local_files": "您電腦上的歌曲只能添加到這個設備上的播放清單。"
 		}
 	},
 	"integrations": {
@@ -687,7 +754,53 @@
 	"lyrics": {
 		"title": "歌詞",
 		"instrumental": "無人聲",
-		"none_found": "沒有找到該曲目的歌詞。"
+		"none_found": "沒有找到該曲目的歌詞。",
+		"source": "歌詞來源：{source}",
+		"romanize": "羅馬拼音",
+		"romanize_hint": "使用拉丁字母標註讀音",
+		"find": "尋找歌詞",
+		"none_found_hint": "嘗試其他來源，或用其他關鍵字搜尋。",
+		"sources_title": "歌詞來源",
+		"sources_hint": "僅用於這首歌。默認的播放順序在“設定”中。",
+		"open_settings": "打開設定",
+		"automatic": "自動",
+		"automatic_hint": "符合的第一項",
+		"automatic_showing": "正在使用 {source}",
+		"kind_words": "逐字逐詞",
+		"kind_synced": "已同步",
+		"kind_plain": "純文本",
+		"not_found": "未找到",
+		"unreachable": "無法使用",
+		"retry": "請再試一次",
+		"check": "檢查",
+		"off": "關閉",
+		"off_hint": "在“設定”中已關閉。仍要檢查一下這首歌曲？",
+		"translated": "包含翻譯",
+		"chosen": "為這首歌套用",
+		"timing": "顯示時機",
+		"timing_hint": "歌詞顯示時機是否需要調整？您可以使用此功能調整。",
+		"timing_value": "{value} 秒",
+		"timing_earlier": "提早顯示歌詞",
+		"timing_later": "延後顯示歌詞",
+		"timing_reset": "重設",
+		"search_open": "不是這首歌？重新手動搜尋",
+		"search_title": "曲名",
+		"search_artist": "演出者",
+		"search_go": "搜尋",
+		"search_reset": "回到這首歌",
+		"search_results": "{query} 的搜尋結果",
+		"translation": "翻譯",
+		"translation_hint": "在每行下方顯示翻譯",
+		"about": {
+			"boidu": "Better Lyrics 資料庫。逐字逐句，記錄了其他人搜索過的歌詞。",
+			"lyricsplus": "Apple Music 歌詞，逐字逐句，使用 Apple 自家的羅馬拼音。",
+			"lrclib": "同步歌詞的開放庫。覆蓋範圍最廣。",
+			"youtube": "YouTube Music 平臺上的歌曲，這些歌曲已經獲得了授權。",
+			"simpmusic": "由社群貢獻，歌詞與 YouTube 上傳的影片完全匹配，包括片頭。",
+			"netease": "包含大量中文歌單。許多歌曲都附帶了中文翻譯。",
+			"qq": "中文歌單，內容豐富，涵蓋華語流行音樂和粵語流行音樂。",
+			"kugou": "中文歌單，用於罕見曲目。"
+		}
 	},
 	"queue": {
 		"title": "待播清單"
@@ -773,5 +886,11 @@
 		"offline_title": "沒有網路連接",
 		"offline_body": "Limusic 無法訪問 YouTube Music。請檢查您的網絡連接，然後重試。",
 		"generic_title": "糟糕，發生了一點錯誤"
+	},
+	"search": {
+		"recent": "近期搜尋",
+		"clear_recent": "清除",
+		"forget": "從近期搜尋移除 \"{query}\"",
+		"filters": "結果類型"
 	}
 }

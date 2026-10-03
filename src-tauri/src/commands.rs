@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use innertube::{
     AlbumPage, ArtistPage, BrowseItem, HistoryGroup, HomePage, MoodSection, PlaylistContinuation,
-    PlaylistPage, PlaylistSort, Rating, SearchResults, SongItem,
+    PlaylistPage, PlaylistSort, Rating, SearchResults, SearchSuggestions, SongItem,
 };
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 use crate::blocked::BlockedArtist;
 use crate::state::{
@@ -49,6 +49,13 @@ pub async fn search_all(
 ) -> Result<SearchResults, String> {
     let client = metadata_client(&state)?;
     state.it.search_all(client, &query, record_history).await.map_err(|e| e.to_string())
+}
+
+/// Typeahead completions + a few matching rows, signed in (see `InnerTube::search_suggestions`).
+#[tauri::command]
+pub async fn search_suggestions(state: St<'_>, query: String) -> Result<SearchSuggestions, String> {
+    let client = metadata_client(&state)?;
+    state.it.search_suggestions(client, &query).await.map_err(|e| e.to_string())
 }
 
 /// Filtered "Show more" search for one category (albums / artists / playlists).
@@ -214,7 +221,7 @@ pub async fn get_queue(state: St<'_>) -> Result<serde_json::Value, String> {
 /// `visitor_data`) and internal blobs (`queue_json`, `queue_index`, `queue_position`) never cross
 /// into the webview: they'd otherwise ship the login credential to the renderer on every open, and
 /// the webview can't overwrite them either.
-const UI_SETTINGS: [&str; 24] = [
+const UI_SETTINGS: [&str; 27] = [
     "volume",
     "proxy",
     "quality",
@@ -224,7 +231,10 @@ const UI_SETTINGS: [&str; 24] = [
     "discord_rpc",
     "discord_rpc_config",
     "close_to_tray",
+    "fast_start",
+    "track_notifications",
     "autostart",
+    "start_minimized",
     "autoplay",
     "hide_videos",
     "prevent_duplicates",
@@ -317,6 +327,16 @@ pub async fn set_setting(
 ) -> Result<(), String> {
     if !UI_SETTINGS.contains(&key.as_str()) {
         return Err(format!("unknown setting: {key}"));
+    }
+    // A login entry registered before `--autostart` existed doesn't carry it, and without it the
+    // setting never applies. `enable` rewrites the entry. Before the write, so a failure leaves the
+    // setting off.
+    if key == "start_minimized" && value == "true" {
+        use tauri_plugin_autostart::ManagerExt;
+        let al = app.autolaunch();
+        if al.is_enabled().unwrap_or(false) {
+            al.enable().map_err(|e| format!("autostart: {e}"))?;
+        }
     }
     state.db.set_setting(&key, &value);
     // Presence connects/clears the moment it's toggled — the user shouldn't have to skip a track
@@ -646,6 +666,18 @@ pub async fn close_mini(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+pub async fn show_main(state: St<'_>, window: tauri::WebviewWindow) -> Result<bool, String> {
+    if crate::should_start_minimized(&state.db) {
+        return Ok(false);
+    }
+    window.show().map_err(|e| e.to_string())?;
+    window.unminimize().map_err(|e| e.to_string())?;
+    window.set_focus().map_err(|e| e.to_string())?;
+    crate::tray::set_main_visible(window.app_handle(), true);
+    Ok(true)
+}
+
 // --- browse / library (context/08) ---------------------------------------------------------
 
 fn metadata_client(state: &Arc<AppState>) -> Result<&innertube::YouTubeClient, String> {
@@ -779,6 +811,7 @@ pub async fn get_playlist(
             sort_menu: None, // built from local history, so YouTube has no order to give
         });
     }
+
     if is_local_playlist(&id) {
         return local_playlist_page(&state, &id);
     }
@@ -1128,10 +1161,11 @@ pub async fn add_to_playlist(
     state: St<'_>,
     playlist_id: String,
     video_id: String,
+    allow_duplicates: Option<bool>,
 ) -> Result<bool, String> {
     let client = editable_playlist(&state, &playlist_id)?;
     let added =
-        state.it.playlist_add(client, &playlist_id, &video_id).await.map_err(|e| e.to_string())?;
+        state.it.playlist_add(client, &playlist_id, &video_id, allow_duplicates.unwrap_or(false)).await.map_err(|e| e.to_string())?;
     // Also on `false`: YouTube refusing a duplicate means the playlist holds the track, which is
     // exactly what the index should say. A stale index is how it got asked in the first place.
     state.db.add_playlist_track(&playlist_id, &video_id);
@@ -2060,6 +2094,119 @@ pub fn theater_fullscreen(window: tauri::WebviewWindow, on: bool) -> Result<(), 
     }
 }
 
+/// Download a track for in-app offline playback.
+#[tauri::command]
+pub async fn download_track(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    song: SongItem,
+) -> Result<String, String> {
+    let target_path = crate::download::offline_track_path(&app, &song.video_id)?;
+    let app_handle = app.clone();
+    let state_arc = state.inner().clone();
+    let v_id = song.video_id.clone();
+    let t_title = song.title.clone();
+    let app_for_err = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::download::download_track_worker(
+            app_handle,
+            state_arc,
+            song,
+            target_path,
+            true,
+        )
+        .await {
+            use tauri::Emitter;
+            let _ = app_for_err.emit(
+                "download-progress",
+                crate::download::DownloadProgress {
+                    video_id: v_id,
+                    title: t_title,
+                    status: "failed".to_string(),
+                    percent: 0.0,
+                    error: Some(e),
+                },
+            );
+        }
+    });
+    Ok("Download started".to_string())
+}
+
+/// Export a track as a tagged audio file to a user-chosen destination on disk.
+#[tauri::command]
+pub async fn export_track(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    song: SongItem,
+    destination_path: String,
+) -> Result<String, String> {
+    let target_path = std::path::PathBuf::from(destination_path);
+    let app_handle = app.clone();
+    let state_arc = state.inner().clone();
+    let v_id = song.video_id.clone();
+    let t_title = song.title.clone();
+    let app_for_err = app.clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::download::download_track_worker(
+            app_handle,
+            state_arc,
+            song,
+            target_path,
+            false,
+        )
+        .await {
+            use tauri::Emitter;
+            let _ = app_for_err.emit(
+                "download-progress",
+                crate::download::DownloadProgress {
+                    video_id: v_id,
+                    title: t_title,
+                    status: "failed".to_string(),
+                    percent: 0.0,
+                    error: Some(e),
+                },
+            );
+        }
+    });
+    Ok("Export started".to_string())
+}
+
+/// List all downloaded tracks available for offline listening.
+#[tauri::command]
+pub fn get_offline_tracks(state: St<'_>) -> Vec<crate::download::OfflineTrack> {
+    state.db.get_offline_tracks()
+}
+
+/// Delete an offline track from disk and database.
+#[tauri::command]
+pub fn delete_offline_track(app: tauri::AppHandle, state: St<'_>, video_id: String) -> Result<(), String> {
+    if let Ok(path) = crate::download::offline_track_path(&app, &video_id) {
+        let _ = std::fs::remove_file(path);
+    }
+    if let Ok(dir) = crate::download::offline_covers_dir(&app) {
+        let _ = std::fs::remove_file(dir.join(format!("{}.jpg", video_id)));
+    }
+    let res = state.db.delete_offline_track(&video_id).map_err(|e| e.to_string());
+    use tauri::Emitter;
+    let _ = app.emit(
+        "download-progress",
+        crate::download::DownloadProgress {
+            video_id: video_id.clone(),
+            title: String::new(),
+            status: "deleted".to_string(),
+            percent: 0.0,
+            error: None,
+        },
+    );
+    res
+}
+
+/// Check if a track is available offline.
+#[tauri::command]
+pub fn is_track_offline(app: tauri::AppHandle, video_id: String) -> bool {
+    crate::download::is_offline(&app, &video_id)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2082,4 +2229,55 @@ mod tests {
         );
         assert_eq!(row.title, played.title, "the song itself survives");
     }
+}
+
+/// `devicePixelRatio`, which Windows needs for the page zoom; Linux reads the zoom off the webview.
+#[tauri::command]
+pub async fn native_video_rect(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    rect: Option<[f64; 4]>,
+    dpr: Option<f64>,
+) -> Result<bool, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = dpr;
+        Ok(crate::nativevideo::set_rect(&app, state.inner().clone(), rect).await)
+    }
+    #[cfg(windows)]
+    return Ok(
+        crate::nativevideo::set_rect(&app, state.inner().clone(), rect, dpr.unwrap_or(1.0)).await
+    );
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        let _ = (app, state, rect, dpr);
+        Ok(false)
+    }
+}
+
+/// second. Raw bytes, so the ~22 KB a frame skips JSON both ways.
+#[tauri::command]
+pub async fn ambient_frame(after: u32) -> tauri::ipc::Response {
+    #[cfg(any(target_os = "linux", windows))]
+    let frame = crate::nativevideo::next_frame(after).await.map(|f| f.to_vec());
+    // Typed: on macOS a bare `None` leaves nothing to infer from, and the PR checks only build on
+    // Linux, so this broke rc.3's Windows and macOS builds with every check green.
+    #[cfg(not(any(target_os = "linux", windows)))]
+    let frame: Option<Vec<u8>> = {
+        let _ = after;
+        None
+    };
+    tauri::ipc::Response::new(frame.unwrap_or_default())
+}
+
+/// The widget's shrink/expand button (#301).
+#[tauri::command]
+pub async fn set_mini_compact(app: tauri::AppHandle, compact: bool) -> Result<(), String> {
+    crate::mini::set_compact(&app, compact)
+}
+
+/// The arguments this process was launched with, handed over once (#348). See `LAUNCH_ARGS`.
+#[tauri::command]
+pub fn take_launch_args() -> Vec<String> {
+    std::mem::take(&mut *crate::LAUNCH_ARGS.lock().unwrap())
 }

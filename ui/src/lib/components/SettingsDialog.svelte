@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { tick, untrack, type Snippet } from 'svelte';
 	import { open, save } from '@tauri-apps/plugin-dialog';
+	import { relaunch } from '@tauri-apps/plugin-process';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
 	import {
 		Cancel01Icon,
@@ -15,7 +16,9 @@
 		Coffee02Icon,
 		DiscordIcon,
 		Globe02Icon,
-		ArrowDown01Icon
+		ArrowDown01Icon,
+		Alert02Icon,
+		LinkSquare02Icon
 	} from '@hugeicons/core-free-icons';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -25,10 +28,11 @@
 	import { Alert, AlertDescription } from '$lib/components/ui/alert';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Select from '$lib/components/ui/select';
+	import * as Popover from '$lib/components/ui/popover';
 	import { HELP_COMBO } from '$lib/shortcuts';
 	import { copyText } from '$lib/clipboard';
 	import * as api from '$lib/api';
-	import { blocked, prefs, refreshView, ui, toast, unblockArtist } from '$lib/player.svelte';
+	import { blocked, prefs, refreshView, setAutoplay, ui, toast, unblockArtist } from '$lib/player.svelte';
 	import { win } from '$lib/win.svelte';
 	import { lt } from '$lib/lt.svelte';
 	import ColorPicker from '$lib/components/ColorPicker.svelte';
@@ -319,7 +323,6 @@
 
 	const quality = $derived(settings.quality ?? 'HIGH');
 	const historyOn = $derived(settings.enable_history !== 'false');
-	const autoplayOn = $derived(settings.autoplay !== 'false');
 	// On unless turned off: loudness matching is what YTM does, and it's what most people want.
 	// Off gives the untouched master, limiter included (#298, #300).
 	const normalizeOn = $derived(settings.normalize_volume !== 'false');
@@ -339,6 +342,8 @@
 	// Off until the setting is turned on: still experimental, so nobody gets video they didn't ask
 	// for. Same test in `player.svelte.ts`, which hydrates `prefs` at launch.
 	const musicVideosOn = $derived(settings.music_videos === 'true');
+	// Off by default, and only offered with music videos on: it costs real GPU time on every frame.
+	const ambientOn = $derived(settings.ambient_light === 'true');
 	// Off by default: the full byline is what YouTube credits, and cutting it is a preference
 	// with a real failure mode (a comma-joined duo name), not a fix (issue #231).
 	const lastfmPrimaryOn = $derived(settings.lastfm_primary_artist === 'true');
@@ -348,10 +353,15 @@
 	const preventDuplicatesOn = $derived(settings.prevent_duplicates === 'true');
 	// Off by default: shuffle applies to the queue it was turned on for (issue #117).
 	const stickyShuffleOn = $derived(settings.sticky_shuffle === 'true');
+	// Off by default: shuffle keeps what was added with Add to queue behind the playlist (#369).
+	const shuffleWholeOn = $derived(settings.shuffle_whole_queue === 'true');
 	const updateBannerOn = $derived(settings.update_banner !== 'false');
 	const betaOn = $derived(settings.update_channel === 'beta');
 	const trayOn = $derived(settings.close_to_tray !== 'false');
+	const fastStartOn = $derived(settings.fast_start === 'true');
+	const trackNotificationsOn = $derived(settings.track_notifications === 'true');
 	const autostartOn = $derived(settings.autostart === 'true');
+	const startMinimizedOn = $derived(settings.start_minimized === 'true');
 	// `native_chrome` is read-only and platform-derived (commands.rs). `overlay` is macOS, where the
 	// traffic lights are fixed at window creation and there is nothing to offer the user (#65).
 	const systemTitlebarOn = $derived(settings.native_chrome !== 'off');
@@ -384,11 +394,6 @@
 		await api.setSetting('enable_history', settings.enable_history);
 	}
 
-	async function setAutoplay(on: boolean) {
-		settings.autoplay = on ? 'true' : 'false';
-		await api.setSetting('autoplay', settings.autoplay);
-	}
-
 	// Rust retunes the track that's already playing, so the difference is audible immediately.
 	async function setNormalize(on: boolean) {
 		settings.normalize_volume = on ? 'true' : 'false';
@@ -411,6 +416,13 @@
 		settings.music_videos = on ? 'true' : 'false';
 		prefs.musicVideos = on;
 		await api.setSetting('music_videos', settings.music_videos);
+	}
+
+	// `prefs` after the write: on Linux the write is also what turns WebGL on for the glow.
+	async function setAmbient(on: boolean) {
+		settings.ambient_light = on ? 'true' : 'false';
+		await api.setSetting('ambient_light', settings.ambient_light);
+		prefs.ambient = on;
 	}
 
 	async function setHideVideos(on: boolean) {
@@ -438,6 +450,11 @@
 		await api.setSetting('sticky_shuffle', settings.sticky_shuffle);
 	}
 
+	async function setShuffleWhole(on: boolean) {
+		settings.shuffle_whole_queue = on ? 'true' : 'false';
+		await api.setSetting('shuffle_whole_queue', settings.shuffle_whole_queue);
+	}
+
 	async function setUpdateBanner(on: boolean) {
 		settings.update_banner = on ? 'true' : 'false';
 		await api.setSetting('update_banner', settings.update_banner);
@@ -452,6 +469,22 @@
 	async function setTray(on: boolean) {
 		settings.close_to_tray = on ? 'true' : 'false';
 		await api.setSetting('close_to_tray', settings.close_to_tray);
+	}
+
+	async function setFastStart(on: boolean) {
+		settings.fast_start = on ? 'true' : 'false';
+		await api.setSetting('fast_start', settings.fast_start);
+		toast.info("Restart required to apply Fast Start", 8000, {
+			label: "Restart",
+			onClick: () => {
+				relaunch().catch((e: unknown) => toast.error(String(e)));
+			}
+		});
+	}
+
+	async function setTrackNotifications(on: boolean) {
+		settings.track_notifications = on ? 'true' : 'false';
+		await api.setSetting('track_notifications', settings.track_notifications);
 	}
 
 	// The backend flips the real window decorations; `win.chrome` is what the SPA keys its own
@@ -475,6 +508,16 @@
 			await api.setSetting('autostart', settings.autostart);
 		} catch (e) {
 			settings.autostart = on ? 'false' : 'true'; // registration failed — revert the switch
+			toast.error(String(e));
+		}
+	}
+
+	async function setStartMinimized(on: boolean) {
+		settings.start_minimized = on ? 'true' : 'false';
+		try {
+			await api.setSetting('start_minimized', settings.start_minimized);
+		} catch (e) {
+			settings.start_minimized = on ? 'false' : 'true';
 			toast.error(String(e));
 		}
 	}
@@ -510,6 +553,8 @@
 	title: string;
 	desc?: string;
 	badge?: string;
+	/** After the title and badge, for a small info affordance that belongs to the title. */
+	extra?: Snippet;
 	control?: Snippet;
 	below?: Snippet;
 	tall?: boolean;
@@ -526,6 +571,7 @@
 							{o.badge}
 						</span>
 					{/if}
+					{#if o.extra}{@render o.extra()}{/if}
 				</div>
 				{#if o.desc}
 					<p class="mt-1 max-w-prose text-xs leading-relaxed text-muted-foreground">{o.desc}</p>
@@ -644,10 +690,27 @@
 									control: traySwitch
 								})}
 								{@render row({
+									title: "Fast Start (Pre-warm connection)",
+									desc: "Uses more RAM on startup to make the first download/play instantaneous",
+									control: fastStartSwitch
+								})}
+								{@render row({
+									title: t('settings.general.track_notifications'),
+									desc: t('settings.general.track_notifications_hint'),
+									control: trackNotificationsSwitch
+								})}
+								{@render row({
 									title: t('settings.general.autostart'),
 									desc: t('settings.general.autostart_hint'),
 									control: autostartSwitch
 								})}
+								{#if autostartOn}
+									{@render row({
+										title: t('settings.general.start_minimized'),
+										desc: t('settings.general.start_minimized_hint'),
+										control: startMinimizedSwitch
+									})}
+								{/if}
 								{#if !systemTitlebarFixed}
 									{@render row({
 										title: t('settings.general.system_titlebar'),
@@ -805,6 +868,12 @@
 									control: stickyShuffleSwitch,
 									tall: true
 								})}
+								{@render row({
+									title: t('settings.playback.shuffle_whole_queue'),
+									desc: t('settings.playback.shuffle_whole_queue_hint'),
+									control: shuffleWholeSwitch,
+									tall: true
+								})}
 							</div>
 						</section>
 						<section class={GROUP}>
@@ -817,6 +886,16 @@
 									control: musicVideoSwitch,
 									tall: true
 								})}
+								{#if musicVideosOn}
+									{@render row({
+										title: t('settings.playback.ambient_light'),
+										badge: t('settings.themes.experimental'),
+										desc: t('settings.playback.ambient_light_hint'),
+										extra: ambientGpu,
+										control: ambientSwitch,
+										tall: true
+									})}
+								{/if}
 								{@render row({
 									title: t('settings.playback.hide_videos'),
 									desc: t('settings.playback.hide_videos_hint'),
@@ -1022,12 +1101,18 @@
 
 {#snippet historySwitch()}<Switch checked={historyOn} onCheckedChange={setHistory} />{/snippet}
 {#snippet traySwitch()}<Switch checked={trayOn} onCheckedChange={setTray} />{/snippet}
+{#snippet fastStartSwitch()}<Switch checked={fastStartOn} onCheckedChange={setFastStart} />{/snippet}
+{#snippet trackNotificationsSwitch()}<Switch
+		checked={trackNotificationsOn}
+		onCheckedChange={setTrackNotifications}
+	/>{/snippet}
 {#snippet autostartSwitch()}<Switch checked={autostartOn} onCheckedChange={setAutostart} />{/snippet}
+{#snippet startMinimizedSwitch()}<Switch checked={startMinimizedOn} onCheckedChange={setStartMinimized} />{/snippet}
 {#snippet systemTitlebarSwitch()}<Switch
 		checked={systemTitlebarOn}
 		onCheckedChange={setSystemTitlebar}
 	/>{/snippet}
-{#snippet autoplaySwitch()}<Switch checked={autoplayOn} onCheckedChange={setAutoplay} />{/snippet}
+{#snippet autoplaySwitch()}<Switch checked={prefs.autoplay} onCheckedChange={setAutoplay} />{/snippet}
 
 {#snippet crossfadeSwitch()}<Switch checked={crossfadeOn} onCheckedChange={setCrossfade} />{/snippet}
 
@@ -1055,8 +1140,47 @@
 		checked={stickyShuffleOn}
 		onCheckedChange={setStickyShuffle}
 	/>{/snippet}
+{#snippet shuffleWholeSwitch()}<Switch
+		checked={shuffleWholeOn}
+		onCheckedChange={setShuffleWhole}
+	/>{/snippet}
 {#snippet normalizeSwitch()}<Switch checked={normalizeOn} onCheckedChange={setNormalize} />{/snippet}
 {#snippet musicVideoSwitch()}<Switch checked={musicVideosOn} onCheckedChange={setMusicVideos} />{/snippet}
+{#snippet ambientSwitch()}<Switch checked={ambientOn} onCheckedChange={setAmbient} />{/snippet}
+<!-- The GPU note, behind a warning glyph by the title: it matters to the few whose card is weak,
+     and a paragraph under the switch read as a reason not to try it. A popover rather than a
+     tooltip, so it opens on a click or a key and can hold the link. -->
+{#snippet ambientGpu()}
+	<Popover.Root>
+		<Popover.Trigger
+			class="-m-1 cursor-pointer rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground data-[state=open]:text-foreground"
+			aria-label={t('settings.playback.ambient_light_gpu_title')}
+			title={t('settings.playback.ambient_light_gpu_title')}
+		>
+			<HugeiconsIcon icon={Alert02Icon} size={14} strokeWidth={1.8} />
+		</Popover.Trigger>
+		<Popover.Content side="top" align="start" class="w-80 gap-3">
+			<div class="flex items-start gap-2.5">
+				<HugeiconsIcon icon={Alert02Icon} size={16} strokeWidth={1.8} class="mt-0.5 shrink-0" />
+				<div class="min-w-0">
+					<p class="text-sm font-semibold">{t('settings.playback.ambient_light_gpu_title')}</p>
+					<p class="mt-1 text-xs leading-relaxed text-muted-foreground">
+						{t('settings.playback.ambient_light_gpu')}
+					</p>
+				</div>
+			</div>
+			<Button
+				variant="secondary"
+				size="sm"
+				class="self-start"
+				onclick={() => api.openExternal('https://www.videocardbenchmark.net/gpu_list.php')}
+			>
+				<HugeiconsIcon icon={LinkSquare02Icon} size={15} strokeWidth={1.8} />
+				{t('settings.playback.ambient_light_gpu_check')}
+			</Button>
+		</Popover.Content>
+	</Popover.Root>
+{/snippet}
 {#snippet hideVideoSwitch()}<Switch checked={hideVideosOn} onCheckedChange={setHideVideos} />{/snippet}
 {#snippet lastfmPrimarySwitch()}<Switch
 		checked={lastfmPrimaryOn}

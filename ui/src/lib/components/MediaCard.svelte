@@ -104,21 +104,30 @@
 					: 'rounded-lg'}"
 			>
 				{#if item.thumbnail && attempt < 2 && !onRepeat}
-					<!-- No hover zoom (#341). On Chromium (WebView2) a transform transition is a
-					     composited animation, and each one starting or ending re-layerizes the whole
-					     page, so sweeping the pointer across a shelf did it on every card. Home top,
-					     perf/scroll.mjs at 4x CPU, hovering: 46-52% of frames over 20 ms in 1.0.0, 7-9%
-					     without this, StackCard's lift and the art-wash promotion. Fades are cheap
-					     enough to keep. -->
-					<img
-						{src}
-						{srcset}
-						alt=""
-						class="h-full w-full object-cover"
-						loading="lazy"
-						draggable="false"
-						onerror={imgFailed}
-					/>
+					{#if src && src.includes(',')}
+						{@const urls = src.split(',')}
+						<div class="grid h-full w-full {urls.length === 2 ? 'grid-cols-2' : 'grid-cols-2 grid-rows-2'}">
+							{#each urls as u}
+								<img src={u} alt="" class="h-full w-full object-cover" loading="lazy" draggable="false" onerror={imgFailed} />
+							{/each}
+						</div>
+					{:else}
+						<!-- No hover zoom (#341). On Chromium (WebView2) a transform transition is a
+						     composited animation, and each one starting or ending re-layerizes the whole
+						     page, so sweeping the pointer across a shelf did it on every card. Home top,
+						     perf/scroll.mjs at 4x CPU, hovering: 46-52% of frames over 20 ms in 1.0.0, 7-9%
+						     without this, StackCard's lift and the art-wash promotion. Fades are cheap
+						     enough to keep. -->
+						<img
+							{src}
+							{srcset}
+							alt=""
+							class="h-full w-full object-cover"
+							loading="lazy"
+							draggable="false"
+							onerror={imgFailed}
+						/>
+					{/if}
 				{:else}
 					<div
 						class="flex h-full w-full items-center justify-center {onRepeat

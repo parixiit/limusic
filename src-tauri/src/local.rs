@@ -673,7 +673,12 @@ pub fn allow_covers(app: &tauri::AppHandle, songs: &[SongItem]) {
 pub fn allow_music_paths(app: &tauri::AppHandle, db: &Db) {
     use tauri::Manager;
     let scope = app.asset_protocol_scope();
-    for dir in folders(db).into_iter().chain([covers_dir(app).to_string_lossy().to_string()]) {
+    let mut dirs = folders(db);
+    dirs.push(covers_dir(app).to_string_lossy().to_string());
+    if let Ok(offline) = crate::download::offline_covers_dir(app) {
+        dirs.push(offline.to_string_lossy().to_string());
+    }
+    for dir in dirs {
         let _ = scope.allow_directory(&dir, true);
         if let Ok(real) = Path::new(&dir).canonicalize() {
             let _ = scope.allow_directory(real, true);

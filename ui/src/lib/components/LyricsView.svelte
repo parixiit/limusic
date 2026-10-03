@@ -2,28 +2,38 @@
 	// Romanization (#202) and translations (#329) are one switch each: on stays on across every song
 	// until it is turned off. Shared by every lyrics view, and the `storage` event carries a change
 	// over to the mini player window. Translations start on, the way they always showed.
-	const KEYS = { romanized: 'lyrics_romanized', translated: 'lyrics_translated' } as const;
+	const KEYS = {
+		romanized: "lyrics_romanized",
+		translated: "lyrics_translated",
+	} as const;
 	type Pref = keyof typeof KEYS;
-	const DEFAULTS: Record<Pref, boolean> = { romanized: false, translated: true };
+	const DEFAULTS: Record<Pref, boolean> = {
+		romanized: false,
+		translated: true,
+	};
 
 	function load(pref: Pref): boolean {
 		try {
 			const v = localStorage.getItem(KEYS[pref]);
-			return v === null ? DEFAULTS[pref] : v === '1';
+			return v === null ? DEFAULTS[pref] : v === "1";
 		} catch {
 			return DEFAULTS[pref];
 		}
 	}
 
-	const prefs = $state({ romanized: load('romanized'), translated: load('translated') });
-	window.addEventListener('storage', (e) => {
-		for (const pref of Object.keys(KEYS) as Pref[]) if (e.key === KEYS[pref]) prefs[pref] = load(pref);
+	const prefs = $state({
+		romanized: load("romanized"),
+		translated: load("translated"),
+	});
+	window.addEventListener("storage", (e) => {
+		for (const pref of Object.keys(KEYS) as Pref[])
+			if (e.key === KEYS[pref]) prefs[pref] = load(pref);
 	});
 
 	function toggle(pref: Pref) {
 		prefs[pref] = !prefs[pref];
 		try {
-			localStorage.setItem(KEYS[pref], prefs[pref] ? '1' : '0');
+			localStorage.setItem(KEYS[pref], prefs[pref] ? "1" : "0");
 		} catch {
 			// Private storage: the toggle still works for this session.
 		}
@@ -31,25 +41,31 @@
 </script>
 
 <script lang="ts">
-	import { HugeiconsIcon } from '@hugeicons/svelte';
-	import { CharacterPhoneticIcon, Search01Icon, TranslateIcon } from '@hugeicons/core-free-icons';
-	import * as api from '$lib/api';
-	import { playback } from '$lib/player.svelte';
-	import { t } from '$lib/i18n.svelte';
-	import LyricsSourcePicker from './LyricsSourcePicker.svelte';
+	import { HugeiconsIcon } from "@hugeicons/svelte";
+	import {
+		CharacterPhoneticIcon,
+		Search01Icon,
+		TranslateIcon,
+	} from "@hugeicons/core-free-icons";
+	import * as api from "$lib/api";
+	import { playback } from "$lib/player.svelte";
+	import { t } from "$lib/i18n.svelte";
+	import LyricsSourcePicker from "./LyricsSourcePicker.svelte";
 
 	// `expanded` only sizes the type and centres the column. The owner of the extra room (the side
 	// panel, or the now-playing view) decides how much there is. Toggling it must not remount this
 	// component, or the lyrics refetch and the scroll position is lost.
 	// `compact` is the mini-player: a ~220px column with no room for the source footer or a
 	// scrollbar. It only shrinks the type and chrome; the sync/auto-scroll logic is identical.
-	let { expanded = false, compact = false }: { expanded?: boolean; compact?: boolean } =
-		$props();
+	let {
+		expanded = false,
+		compact = false,
+	}: { expanded?: boolean; compact?: boolean } = $props();
 
 	/** "3:21" / "1:02:03" → seconds. */
 	function durationSecs(d?: string): number | undefined {
 		if (!d) return undefined;
-		const parts = d.split(':').map(Number);
+		const parts = d.split(":").map(Number);
 		if (!parts.length || parts.some(Number.isNaN)) return undefined;
 		return parts.reduce((a, b) => a * 60 + b, 0);
 	}
@@ -76,7 +92,9 @@
 			title: now.title,
 			artists: now.artists,
 			album: now.album ?? undefined,
-			duration: durationSecs(now.duration) ?? (playback.duration > 0 ? playback.duration : undefined)
+			duration:
+				durationSecs(now.duration) ??
+				(playback.duration > 0 ? playback.duration : undefined),
 		};
 	});
 
@@ -87,12 +105,12 @@
 	}
 
 	// videoId of the fetch whose result is (or will be) shown — guards stale responses.
-	let requested = '';
+	let requested = "";
 
 	$effect(() => {
 		const now = playback.now;
 		if (!now) {
-			requested = '';
+			requested = "";
 			lyrics = null;
 			loading = false;
 			return;
@@ -110,7 +128,7 @@
 			album: now.album ?? undefined,
 			// The track's own length — NOT playback.duration, which still holds the previous
 			// track's value for a moment after a track change.
-			duration: durationSecs(now.duration)
+			duration: durationSecs(now.duration),
 		})
 			.then((l) => {
 				if (requested !== id) return;
@@ -124,9 +142,19 @@
 			});
 	});
 
+	// Synced only if explicitly marked synced AND having at least one valid line timestamp.
+	const isSynced = $derived(
+		Boolean(
+			lyrics?.synced &&
+				lyrics.lines.some(
+					(l) => l.time_ms !== undefined && l.time_ms !== null,
+				),
+		),
+	);
+
 	// Last synced line whose cue has passed (lines arrive sorted by time).
 	const activeIndex = $derived.by(() => {
-		if (!lyrics?.synced) return -1;
+		if (!isSynced || !lyrics) return -1;
 		const currentMs = posMs;
 		let i = -1;
 		for (let j = 0; j < lyrics.lines.length; j++) {
@@ -168,9 +196,11 @@
 		const boxRect = scroller.getBoundingClientRect();
 		scroller.scrollTo({
 			top:
-				scroller.scrollTop + (lineRect.top - boxRect.top) - (boxRect.height - lineRect.height) / 2,
+				scroller.scrollTop +
+				(lineRect.top - boxRect.top) -
+				(boxRect.height - lineRect.height) / 2,
 			// Opening mid-song jumps straight to the line; after that, glide.
-			behavior: hasScrolled ? 'smooth' : 'instant'
+			behavior: hasScrolled ? "smooth" : "instant",
 		});
 		hasScrolled = true;
 	});
@@ -193,7 +223,8 @@
 	 *  mounted lyrics panel, on every track, for the whole session, which meant the app never
 	 *  reached an idle frame. */
 	const needsFrameClock = $derived(
-		!!lyrics?.synced && lyrics.lines.some((l) => (l.words?.length ?? 0) > 0)
+		isSynced &&
+			(lyrics?.lines.some((l) => (l.words?.length ?? 0) > 0) ?? false),
 	);
 
 	$effect(() => {
@@ -241,12 +272,17 @@
 	{#if loading}
 		<div class="space-y-3">
 			{#each { length: 8 } as _, i (i)}
-				<div class="h-5 animate-pulse rounded bg-muted" style="width:{55 + ((i * 17) % 40)}%"></div>
+				<div
+					class="h-5 animate-pulse rounded bg-muted"
+					style="width:{55 + ((i * 17) % 40)}%"
+				></div>
 			{/each}
 		</div>
 	{:else if lyrics?.instrumental}
-		<p class="py-8 text-center text-lg text-muted-foreground">{t('lyrics.instrumental')} ♪</p>
-	{:else if lyrics && lyrics.synced}
+		<p class="py-8 text-center text-lg text-muted-foreground">
+			{t("lyrics.instrumental")} ♪
+		</p>
+	{:else if lyrics && isSynced}
 		<!-- Bottom padding only, so the last lines can still center-scroll. A matching top padding
 		     would put half a panel of void above line 1, which is all you see until the song has
 		     played far enough to scroll past it (issue #201). Instead the opening lines sit at the
@@ -275,13 +311,15 @@
 					{#if line.words && line.words.length > 0}
 						{@render sweep(line.words, isActive)}
 					{:else}
-						<span>{line.text || '♪'}</span>
+						<span>{line.text || "♪"}</span>
 					{/if}
 
 					{#if showRomanized && line.romanized}
 						<!-- Relative size, so it follows the line from the mini player to theater mode.
 						     Apple's reading is timed to the same syllables and sweeps with the line. -->
-						<span class="mt-0.5 block text-[length:max(0.62em,11px)] font-semibold">
+						<span
+							class="mt-0.5 block text-[length:max(0.62em,11px)] font-semibold"
+						>
 							{#if line.romanized_words && line.romanized_words.length > 0}
 								{@render sweep(line.romanized_words, isActive)}
 							{:else}
@@ -291,7 +329,9 @@
 					{/if}
 
 					{#if showTranslation && line.translation}
-						<p class="mt-1 text-sm font-normal italic tracking-wide opacity-80 transition-opacity">
+						<p
+							class="mt-1 text-sm font-normal italic tracking-wide opacity-80 transition-opacity"
+						>
 							{line.translation}
 						</p>
 					{/if}
@@ -311,10 +351,14 @@
 					<div>
 						<p>{line.text}</p>
 						{#if showRomanized && line.romanized}
-							<p class="text-[0.85em] text-muted-foreground">{line.romanized}</p>
+							<p class="text-[0.85em] text-muted-foreground">
+								{line.romanized}
+							</p>
 						{/if}
 						{#if showTranslation && line.translation}
-							<p class="text-xs italic text-muted-foreground">{line.translation}</p>
+							<p class="text-xs italic text-muted-foreground">
+								{line.translation}
+							</p>
 						{/if}
 					</div>
 				{:else}
@@ -324,59 +368,76 @@
 		</div>
 	{:else}
 		<div class="flex flex-col items-center gap-1.5 py-8 text-center">
-			<p class="text-sm text-muted-foreground">{t('lyrics.none_found')}</p>
+			<p class="text-sm text-muted-foreground">
+				{t("lyrics.none_found")}
+			</p>
 			{#if !compact && track}
-				<p class="max-w-64 text-xs text-muted-foreground/80">{t('lyrics.none_found_hint')}</p>
+				<p class="max-w-64 text-xs text-muted-foreground/80">
+					{t("lyrics.none_found_hint")}
+				</p>
 				<button
 					onclick={() => (pickerOpen = true)}
 					class="mt-2 flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors hover:bg-foreground/5"
 				>
 					<HugeiconsIcon icon={Search01Icon} class="h-3.5 w-3.5" />
-					{t('lyrics.find')}
+					{t("lyrics.find")}
 				</button>
 			{/if}
 		</div>
 	{/if}
 </div>
 {#if track && !loading && !compact}
-	<div class="mt-3 flex items-center gap-1 border-t border-border/60 px-4 pt-2 pb-1.5 text-xs text-muted-foreground">
+	<div
+		class="mt-auto flex items-center gap-2 px-4 py-2 text-xs text-muted-foreground/70"
+	>
 		<!-- The source is the switch (#23): a popover with every provider's answer for this song. -->
-		<div class="flex min-w-0 flex-1">
-			<LyricsSourcePicker {lyrics} {track} bind:open={pickerOpen} onchange={onPicked} />
+		<div class="flex min-w-0 flex-1 items-center">
+			<LyricsSourcePicker
+				{lyrics}
+				{track}
+				bind:open={pickerOpen}
+				onchange={onPicked}
+			/>
 		</div>
 		<!-- Each only on lyrics that have something for it, so neither sits there dead. The mini
 		     player has no footer and follows whatever was chosen here. -->
 		{#if canTranslate}
 			{@render prefToggle(
-				'translated',
+				"translated",
 				showTranslation,
 				TranslateIcon,
-				t('lyrics.translation'),
-				t('lyrics.translation_hint')
+				t("lyrics.translation"),
+				t("lyrics.translation_hint"),
 			)}
 		{/if}
 		{#if canRomanize}
 			{@render prefToggle(
-				'romanized',
+				"romanized",
 				showRomanized,
 				CharacterPhoneticIcon,
-				t('lyrics.romanize'),
-				t('lyrics.romanize_hint')
+				t("lyrics.romanize"),
+				t("lyrics.romanize_hint"),
 			)}
 		{/if}
 	</div>
 {/if}
 
-{#snippet prefToggle(pref: Pref, on: boolean, icon: typeof TranslateIcon, label: string, hint: string)}
+{#snippet prefToggle(
+	pref: Pref,
+	on: boolean,
+	icon: typeof TranslateIcon,
+	label: string,
+	hint: string,
+)}
 	<button
 		onclick={() => toggle(pref)}
-		class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2 py-0.5 transition-colors hover:bg-foreground/10 {on
+		class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium transition-colors hover:text-muted-foreground {on
 			? 'text-primary'
-			: 'hover:text-foreground'}"
+			: 'text-muted-foreground/60'}"
 		aria-pressed={on}
 		title={hint}
 	>
-		<HugeiconsIcon {icon} class="h-3.5 w-3.5" />
+		<HugeiconsIcon {icon} class="h-3 w-3" />
 		{label}
 	</button>
 {/snippet}
@@ -386,11 +447,13 @@
 {#snippet sweep(words: api.LyricWord[], active: boolean)}
 	<span class="inline-flex flex-wrap items-baseline">
 		{#each words as word, wIdx (wIdx)}
-			{@const isWordEnd = word.text.endsWith(' ')}
+			{@const isWordEnd = word.text.endsWith(" ")}
 			{@const cleanText = word.text.trimEnd()}
 			{#if active}
 				{@const progress = getWordProgress(word, posMs)}
-				{@const pct = Math.round(Math.min(1, Math.max(0, progress)) * 100)}
+				{@const pct = Math.round(
+					Math.min(1, Math.max(0, progress)) * 100,
+				)}
 				{@const isCurrentWord = progress > 0 && progress < 1}
 				<!-- Only the gradient stop moves per frame; the clip/fill are static, so they
 				     live in the class and aren't re-serialised 60 times a second. Both
@@ -413,4 +476,3 @@
 		{/each}
 	</span>
 {/snippet}
-

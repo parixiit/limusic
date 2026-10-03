@@ -40,7 +40,6 @@
 //! which Discord dropped — leaving the card stuck as an elapsed counter with no progress bar.
 
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryRecvError};
-use std::sync::OnceLock;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use discord_rich_presence::{activity, DiscordIpc, DiscordIpcClient};
@@ -639,7 +638,13 @@ impl Presence {
         // Unlike the Gateway, the IPC client accepts a plain https URL here and proxies it itself —
         // no `external-assets` round-trip. Artwork is best-effort: no thumbnail is just a
         // text-only presence.
-        if let Some(url) = track.thumbnail.clone().filter(|_| cfg.cover) {
+        let mut thumb_url = track.thumbnail.clone();
+        if let Some(u) = &thumb_url {
+            if !u.starts_with("http://") && !u.starts_with("https://") {
+                thumb_url = Some(format!("https://i.ytimg.com/vi/{}/mqdefault.jpg", track.video_id));
+            }
+        }
+        if let Some(url) = thumb_url.filter(|_| cfg.cover) {
             let mut assets = activity::Assets::new().large_image(url);
             if let Some(line3) = text_for(&cfg.line3, &track) {
                 assets = assets.large_text(field(&line3));
@@ -827,22 +832,10 @@ fn field(s: &str) -> String {
     out
 }
 
-/// Ready a thumbnail URL for Discord's card: request a decent resolution (stored thumbs are often
-/// row-sized, 60px) and refuse URLs over Discord's length limit. Mirrors `ui/src/lib/thumb.ts` —
-/// only googleusercontent-style URLs carry their size in the URL; i.ytimg path-variant thumbs pass
-/// through unchanged (other sizes can 404).
+/// Ready a thumbnail URL for Discord's card: request a decent resolution (see
+/// [`crate::media::cover_url`]) and refuse URLs over Discord's length limit.
 fn discord_thumb(url: &str) -> Option<String> {
-    static WH: OnceLock<regex::Regex> = OnceLock::new();
-    static S: OnceLock<regex::Regex> = OnceLock::new();
-    let wh = WH.get_or_init(|| regex::Regex::new(r"=w\d+-h\d+").expect("static regex"));
-    let s = S.get_or_init(|| regex::Regex::new(r"=s\d+").expect("static regex"));
-    let sized = if wh.is_match(url) {
-        wh.replace(url, "=w512-h512").into_owned()
-    } else if s.is_match(url) {
-        s.replace(url, "=s512").into_owned()
-    } else {
-        url.to_owned()
-    };
+    let sized = crate::media::cover_url(url);
     (sized.len() <= MAX_ASSET_URL).then_some(sized)
 }
 

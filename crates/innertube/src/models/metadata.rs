@@ -1021,6 +1021,19 @@ pub(crate) fn duration_from_runs(runs: Option<&Vec<Value>>) -> Option<String> {
 
 /// Deepest/last thumbnail URL under this node (highest resolution).
 pub(crate) fn last_thumbnail(node: &Value) -> Option<String> {
+    if let Some(composite) = find_all(node, "musicCompositeThumbnailRenderer").first() {
+        if let Some(arr) = composite.get("thumbnails").and_then(Value::as_array) {
+            let mut urls = Vec::new();
+            for item in arr {
+                if let Some(url) = last_thumbnail(item) {
+                    urls.push(url);
+                }
+            }
+            if !urls.is_empty() {
+                return Some(urls.join(","));
+            }
+        }
+    }
     // Find any `thumbnails: [ { url }, ... ]` array and take the last url.
     fn walk(v: &Value) -> Option<String> {
         match v {

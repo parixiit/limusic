@@ -231,6 +231,19 @@ impl Db {
             );
             CREATE INDEX IF NOT EXISTS local_playlist_tracks_video
                 ON local_playlist_tracks(video_id);
+            CREATE TABLE IF NOT EXISTS offline_tracks (
+                video_id      TEXT PRIMARY KEY,
+                title         TEXT NOT NULL,
+                artists       TEXT NOT NULL,
+                album         TEXT,
+                duration      TEXT,
+                thumbnail     TEXT,
+                file_path     TEXT NOT NULL,
+                file_size     INTEGER NOT NULL,
+                downloaded_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS offline_tracks_downloaded_at
+                ON offline_tracks(downloaded_at);
             "#,
         )?;
         // Migrate pre-Phase-4 DBs that predate the loudness_db column. Errors ("duplicate column")
@@ -1149,6 +1162,60 @@ impl Db {
         }
         out.sort_by(|a, b| order(a).cmp(&order(b)));
         out
+    }
+
+    pub fn save_offline_track(&self, track: &crate::download::OfflineTrack) -> Result<(), rusqlite::Error> {
+        let conn = self.0.lock().unwrap();
+        conn.execute(
+            "INSERT OR REPLACE INTO offline_tracks(video_id, title, artists, album, duration, thumbnail, file_path, file_size, downloaded_at)
+             VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![
+                track.video_id,
+                track.title,
+                track.artists,
+                track.album,
+                track.duration,
+                track.thumbnail,
+                track.file_path,
+                track.file_size as i64,
+                track.downloaded_at,
+            ],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_offline_tracks(&self) -> Vec<crate::download::OfflineTrack> {
+        let conn = self.0.lock().unwrap();
+        let mut stmt = match conn.prepare(
+            "SELECT video_id, title, artists, album, duration, thumbnail, file_path, file_size, downloaded_at
+             FROM offline_tracks ORDER BY downloaded_at DESC"
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok(crate::download::OfflineTrack {
+                video_id: row.get(0)?,
+                title: row.get(1)?,
+                artists: row.get(2)?,
+                album: row.get(3)?,
+                duration: row.get(4)?,
+                thumbnail: row.get(5)?,
+                file_path: row.get(6)?,
+                file_size: row.get::<_, i64>(7)? as u64,
+                downloaded_at: row.get(8)?,
+            })
+        });
+        match rows {
+            Ok(r) => r.filter_map(Result::ok).collect(),
+            Err(_) => Vec::new(),
+        }
+    }
+
+    pub fn delete_offline_track(&self, video_id: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.0.lock().unwrap();
+        conn.execute("DELETE FROM offline_tracks WHERE video_id = ?1", [video_id])?;
+        Ok(())
     }
 }
 

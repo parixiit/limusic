@@ -47,7 +47,8 @@
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import KeyboardShortcuts from '$lib/components/KeyboardShortcuts.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { auth, initApp, np, playback, ui } from '$lib/player.svelte';
+	import { auth, initApp, np, playback, prefs, ui } from '$lib/player.svelte';
+	import { video } from '$lib/video.svelte';
 	import { win, initWin } from '$lib/win.svelte';
 	import { initZoom } from '$lib/zoom.svelte';
 	import { initShortcuts } from '$lib/shortcuts';
@@ -240,12 +241,26 @@
 	     12px, not `rounded-lg`: that resolves to --radius, which every theme sets differently, so
 	     the window corner used to change with the theme. This is the GNOME/Adwaita value (#65). -->
 	<div
-		class="flex h-screen flex-col overflow-hidden bg-background text-foreground {win.maximized ||
+		class="relative flex h-screen flex-col overflow-hidden text-foreground {video.hole
+			? ''
+			: 'bg-background'} {win.maximized ||
 		ui.theaterOpen ||
 		win.chrome !== 'off'
 			? ''
 			: 'rounded-[12px]'}"
 	>
+		{#if video.hole}
+			<!-- Linux: mpv draws the music video underneath the page (nativevideo.rs), so the page
+			     paints its background everywhere except the picture's box: a spread shadow, not a
+			     blur, so it costs one static paint. At -z-10 it sits under everything else, and the
+			     root's own background and <main> step aside while it is up (both paint the box). -->
+			<div
+				aria-hidden="true"
+				class="pointer-events-none absolute -z-10 rounded-2xl"
+				style="left:{video.hole.x}px;top:{video.hole.y}px;width:{video.hole.w}px;height:{video.hole
+					.h}px;box-shadow:0 0 0 100vmax var(--background)"
+			></div>
+		{/if}
 		<ResizeBorders />
 		<Titlebar />
 		<!-- relative: the queue and lyrics panels are absolute overlays inside it (see QueuePanel). -->
@@ -253,7 +268,11 @@
 			<Sidebar />
 			<!-- dragScroll: dragging a card up to home's Shortcuts grid has to be possible from anywhere in
 			     the feed, so aiming at the top edge scrolls this container while the drag is in flight. -->
-			<main class="min-w-0 flex-1 overflow-y-auto" bind:this={scroller} {@attach dragScroll}>
+			<main
+				class="min-w-0 flex-1 overflow-y-auto {video.hole ? 'invisible' : ''}"
+				bind:this={scroller}
+				{@attach dragScroll}
+			>
 				<!-- Remount the current page on sign-in/out so it refetches with the new account, and on
 				     a refresh (titlebar button / F5), which drops the browse cache first. -->
 				{#key `${auth.epoch}:${ui.epoch}`}
@@ -262,8 +281,9 @@
 			</main>
 			<!-- Always mounted, unlike the player view below it: it owns the one <video> element, which
 			     has to keep playing while the view is closed. It renders nothing but a zero-sized
-			     parking container until the view borrows the picture. -->
-			<VideoSurface />
+			     parking container until the view borrows the picture. Not on Linux, where mpv draws the
+			     picture itself (prefs.nativeVideo). -->
+			{#if !prefs.nativeVideo}<VideoSurface />{/if}
 			{#if np.open && playback.now}<NowPlaying {queueOpen} {lyricsOpen} />{/if}
 			<!-- Lyrics before queue: side by side over the page, lyrics on the left, queue on the right. -->
 			{#if lyricsOpen}<LyricsPanel onClose={() => (lyricsOpen = false)} {queueOpen} />{/if}
@@ -305,7 +325,7 @@
 	{#if updateState.available}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
-			class="fixed bottom-24 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
+			class="pointer-events-auto fixed bottom-24 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-3 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
 		>
 			<span>{availableMessage(updateState.available)}</span>
 			{#if updateState.canInstall}
@@ -335,7 +355,7 @@
 		{@const t = ui.toast}
 		<div
 			transition:fly={{ y: 16, duration: 220, easing: cubicOut }}
-			class="fixed bottom-40 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
+			class="pointer-events-auto fixed bottom-40 left-1/2 z-[100] flex -translate-x-1/2 items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm shadow-lg"
 		>
 			<!-- Three branches instead of a ternary on `icon`: HugeiconsIcon freezes `icon` at mount, so a
 			     new toast replacing a visible one would keep the old glyph. -->
@@ -349,7 +369,34 @@
 					class="h-4 w-4 shrink-0 text-muted-foreground"
 				/>
 			{/if}
-			{t.msg}
+			{#if t.msg.includes('<b>')}
+				<span>{@html t.msg}</span>
+			{:else}
+				<span>{t.msg}</span>
+			{/if}
+			{#if t.action}
+				<div class="ml-2 flex items-center gap-1.5 border-l border-border/60 pl-2.5">
+					<button
+						type="button"
+						class="cursor-pointer rounded bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90 active:scale-95 transition"
+						onclick={() => {
+							t.action?.onClick();
+							ui.toast = null;
+						}}
+					>
+						{t.action.label}
+					</button>
+					<button
+						type="button"
+						class="cursor-pointer rounded px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition"
+						onclick={() => {
+							ui.toast = null;
+						}}
+					>
+						Later
+					</button>
+				</div>
+			{/if}
 		</div>
 	{/if}
 {/if}

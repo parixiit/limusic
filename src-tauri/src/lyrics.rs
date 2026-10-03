@@ -29,6 +29,7 @@ use std::time::Duration;
 use innertube::NextResult;
 use serde::{Deserialize, Serialize};
 
+use std::sync::Arc;
 use crate::state::AppState;
 
 /// How long a cached "no lyrics found" verdict suppresses refetching.
@@ -146,6 +147,7 @@ pub struct Lyrics {
     pub offset_ms: i64,
 }
 
+#[derive(Clone)]
 pub struct LyricsRequest {
     pub video_id: String,
     pub title: String,
@@ -159,7 +161,7 @@ pub struct LyricsRequest {
 /// or down the provider list). `Some(id)` asks that one provider alone and caches nothing: the
 /// source picker's preview, which also works for a provider switched off in Settings.
 pub async fn get_lyrics(
-    state: &AppState,
+    state: &Arc<AppState>,
     req: LyricsRequest,
     source: Option<String>,
 ) -> Result<Option<Lyrics>, String> {
@@ -176,7 +178,7 @@ pub async fn get_lyrics(
 /// The source picker's choice for one song. `Some(id)`: that provider's lyrics, kept for the song
 /// (a miss leaves what was there). `None`: forget the choice and let the list decide again.
 pub async fn choose_source(
-    state: &AppState,
+    state: &Arc<AppState>,
     req: LyricsRequest,
     source: Option<String>,
 ) -> Option<Lyrics> {
@@ -213,13 +215,13 @@ pub fn set_offset(state: &AppState, video_id: &str, offset_ms: i64) {
     }
 }
 
-async fn cached_or_fetched(state: &AppState, req: LyricsRequest) -> Option<Lyrics> {
+async fn cached_or_fetched(state: &Arc<AppState>, req: LyricsRequest) -> Option<Lyrics> {
     let now = now_secs();
     let video_id = req.video_id.clone();
     if let Some(cached) = state.db.get_lyrics(&video_id, now, MISS_TTL_SECS) {
         return cached.and_then(|json| serde_json::from_str(&json).ok());
     }
-    let (lyrics, cacheable) = fetch(state, req).await;
+    let (lyrics, cacheable) = fetch(Arc::clone(state), req).await;
     if cacheable {
         let json = lyrics.as_ref().and_then(|l| serde_json::to_string(l).ok());
         state.db.put_lyrics(&video_id, json.as_deref(), now);
@@ -294,29 +296,75 @@ async fn ask(
 /// known (the fuzzy providers land on wrong *cuts* without it, lyrics seconds off the audio) or the
 /// provider matched the video itself; a miss only when some provider answered rather than merely
 /// erroring (offline must not poison the cache with a 24h "no lyrics").
-async fn fetch(state: &AppState, mut req: LyricsRequest) -> (Option<Lyrics>, bool) {
-    let next = resolve(state, &mut req).await;
-    if let Err(e) = &next {
-        tracing::debug!(error = %e, "lyrics: next() failed");
+///
+/// Providers run **in parallel**: all enabled ones are fired simultaneously and the first synced
+/// or instrumental result wins. This cuts the common case from N serial network RTTs to one RTT.
+async fn fetch(state: Arc<AppState>, mut req: LyricsRequest) -> (Option<Lyrics>, bool) {
+
+    let providers: Vec<String> = provider_order(state.db.get_setting("lyrics_providers").as_deref())
+        .into_iter()
+        .filter(|(_, on)| *on)
+        .map(|(id, _)| id.to_owned())
+        .collect();
+
+    if providers.is_empty() {
+        return (None, false);
     }
-    let req = &req;
+
+    let mut set = tokio::task::JoinSet::new();
+    
+    // Providers that don't need `resolve` can start instantly if duration is known.
+    let needs_resolve = req.duration.is_none() || providers.contains(&"youtube".to_string());
+    
+    let next_result = if needs_resolve {
+        let next = resolve(&*state, &mut req).await;
+        if let Err(e) = &next {
+            tracing::debug!(error = %e, "lyrics: next() failed");
+        }
+        next
+    } else {
+        Ok(None)
+    };
+
+    let next_snap = next_result.as_ref().map(|n| n.clone()).map_err(|e: &String| e.clone());
     let cacheable = |id: &str| req.duration.is_some() || matches!(id, "youtube" | "simpmusic");
+
+    for id in providers {
+        let state2 = Arc::clone(&state);
+        let req2 = req.clone();
+        let next2 = next_snap.as_ref().map(|n| n.clone()).map_err(|e: &String| e.clone());
+        set.spawn(async move {
+            let next_ref: Result<Option<NextResult>, String> = next2;
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(3),
+                ask(&id, &state2, &req2, &next_ref)
+            ).await.unwrap_or_else(|_| Err("timeout".to_string()));
+            (id, result)
+        });
+    }
 
     let mut definitive = false;
     let mut plain: Option<Lyrics> = None;
-    for (id, on) in provider_order(state.db.get_setting("lyrics_providers").as_deref()) {
-        if !on {
-            continue;
-        }
-        match ask(id, state, req, &next).await {
-            Ok(Some(l)) if l.synced || l.instrumental => return (Some(l), cacheable(id)),
-            Ok(hit) => {
-                definitive = true;
-                plain = plain.or(hit);
+
+    while let Some(res) = set.join_next().await {
+        let Ok((id, outcome)) = res else { continue };
+        match outcome {
+            // Synced or instrumental: best possible result — return immediately.
+            Ok(Some(l)) if l.synced || l.instrumental => {
+                set.abort_all();
+                return (Some(l), cacheable(&id));
             }
-            Err(e) => tracing::debug!(provider = id, error = %e, "lyrics: provider failed"),
+            Ok(Some(l)) => {
+                definitive = true;
+                plain = plain.or(Some(l));
+            }
+            Ok(None) => {
+                definitive = true;
+            }
+            Err(e) => tracing::debug!(provider = id.as_str(), error = %e, "lyrics: provider failed"),
         }
     }
+
     match plain {
         Some(l) => {
             let cache = cacheable(&l.provider);
@@ -325,6 +373,7 @@ async fn fetch(state: &AppState, mut req: LyricsRequest) -> (Option<Lyrics>, boo
         None => (None, definitive),
     }
 }
+
 
 /// YouTube Music's own lyrics: the timed ones its mobile app shows, else the plain text under
 /// YouTube's attribution ("Source: Musixmatch"). Region-licensed, so often absent.
@@ -341,15 +390,15 @@ async fn youtube_get(
     if let Some(client) = state.clients.get(innertube::LYRICS_TIMED_CLIENT) {
         match state.it.lyrics_timed(client, &bid).await {
             Ok(lines) if !lines.is_empty() => {
-                return Ok(Some(Lyrics {
-                    source: "YouTube Music".into(),
-                    synced: true,
-                    lines: lines
-                        .into_iter()
-                        .map(|l| LyricLine::simple(Some(l.time_ms), l.text))
-                        .collect(),
-                    ..Default::default()
-                }));
+                let parsed_lines = lines
+                    .into_iter()
+                    .map(|l| LyricLine::simple(Some(l.time_ms), l.text))
+                    .collect();
+                if let Some(lyrics) = from_parsed("YouTube Music", parsed_lines) {
+                    if lyrics.synced {
+                        return Ok(Some(lyrics));
+                    }
+                }
             }
             Ok(_) => {}
             Err(e) => tracing::debug!(error = %e, "lyrics: timed browse failed"),
@@ -528,14 +577,10 @@ fn lrclib_to_lyrics(t: &LrclibTrack) -> Option<Lyrics> {
         return Some(Lyrics { source: "LRCLIB".into(), instrumental: true, ..Default::default() });
     }
     if let Some(lrc) = t.synced_lyrics.as_deref().filter(|s| !s.trim().is_empty()) {
-        let lines = parse_lrc(lrc);
-        if !lines.is_empty() {
-            return Some(Lyrics {
-                source: "LRCLIB".into(),
-                synced: true,
-                lines,
-                ..Default::default()
-            });
+        if let Some(lyrics) = from_parsed("LRCLIB", parse_lrc(lrc)) {
+            if lyrics.synced {
+                return Some(lyrics);
+            }
         }
     }
     plain_from_text(t.plain_lyrics.as_deref(), "LRCLIB")

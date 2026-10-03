@@ -6,7 +6,7 @@
 //! captured `AppHandle`. The two share the same commands the UI uses, so they never drift.
 
 use std::sync::mpsc::{channel, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use souvlaki::{
@@ -22,6 +22,8 @@ enum MediaUpdate {
     Metadata { title: String, artist: String, album: Option<String>, cover: Option<String> },
     Duration(f64),
     Playback { playing: bool, pos: f64 },
+    #[allow(dead_code)]
+    Volume(i64), // slider percent, 0-100
 }
 
 /// App-side handle to the media-controls thread. Cheap to clone-send into. `None` when the OS
@@ -52,6 +54,10 @@ impl MediaHandle {
 
     pub fn set_playback(&self, playing: bool, pos: f64) {
         let _ = self.tx.send(MediaUpdate::Playback { playing, pos });
+    }
+
+    pub fn set_volume(&self, volume: i64) {
+        let _ = self.tx.send(MediaUpdate::Volume(volume));
     }
 }
 
@@ -110,6 +116,8 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<MediaUpdate>) {
     let mut album: Option<String> = None;
     let mut cover: Option<String> = None;
     let mut duration: Option<f64> = None;
+    #[cfg(target_os = "linux")]
+    let mut volume: Option<i64> = None;
 
     // `recv` blocks until the sender drops (app shutdown), keeping `controls` alive.
     while let Ok(update) = rx.recv() {
@@ -135,6 +143,17 @@ fn run(app: AppHandle, rx: std::sync::mpsc::Receiver<MediaUpdate>) {
                 };
                 let _ = controls.set_playback(state);
             }
+            // MPRIS only: SMTC and NowPlaying have no per-app volume. Skipped when unchanged, as
+            // every push is a D-Bus broadcast and a slider release repeats the drag's last value.
+            #[cfg(target_os = "linux")]
+            MediaUpdate::Volume(v) => {
+                if volume != Some(v) {
+                    volume = Some(v);
+                    let _ = controls.set_volume(v as f64 / 100.0);
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            MediaUpdate::Volume(_) => {}
         }
     }
 }
@@ -154,6 +173,25 @@ fn apply_metadata(
         cover_url: cover.as_deref(),
         duration: duration.map(Duration::from_secs_f64),
     });
+}
+
+/// Request a cover big enough for a media widget or Discord card: stored thumbs are usually
+/// row-sized (120px), which looks pixelated anywhere larger (#360). Mirrors `ui/src/lib/thumb.ts`:
+/// only googleusercontent-style URLs carry their size in the URL; i.ytimg path-variant thumbs and
+/// local `file://` covers pass through unchanged (other sizes can 404). 512 is the size Discord has
+/// always requested, so it is known to be served.
+pub(crate) fn cover_url(url: &str) -> String {
+    static WH: OnceLock<regex::Regex> = OnceLock::new();
+    static S: OnceLock<regex::Regex> = OnceLock::new();
+    let wh = WH.get_or_init(|| regex::Regex::new(r"=w\d+-h\d+").expect("static regex"));
+    let s = S.get_or_init(|| regex::Regex::new(r"=s\d+").expect("static regex"));
+    if wh.is_match(url) {
+        wh.replace(url, "=w512-h512").into_owned()
+    } else if s.is_match(url) {
+        s.replace(url, "=s512").into_owned()
+    } else {
+        url.to_owned()
+    }
 }
 
 /// Route an OS control press into the same [`AppState`] methods the UI commands use. Runs the
@@ -187,6 +225,11 @@ pub(crate) fn handle_event(app: &AppHandle, event: MediaControlEvent) {
             MediaControlEvent::Seek(dir) => {
                 let delta = if matches!(dir, SeekDirection::Forward) { 10.0 } else { -10.0 };
                 let _ = state.player.seek((state.current_position() + delta).max(0.0));
+            }
+            // An MPRIS widget or KDE Connect (#220). Same path as a volume hotkey, which also
+            // pushes the new level back: without that the widget snaps to the old one.
+            MediaControlEvent::SetVolume(v) => {
+                crate::hotkeys::change_volume(&state, &app, |_| (v * 100.0).round() as i64)
             }
             _ => {}
         }

@@ -125,6 +125,17 @@ async fn handle(
     req: Request<Incoming>,
     state: Arc<AppState>,
 ) -> Result<Response<ProxyBody>, StatusCode> {
+    // The page's ambient light reads the picture into WebGL, which only works on a CORS load: the
+    // element then asks with `crossorigin` and every answer has to allow it. `*` gives nothing away
+    // the token doesn't already guard. A preflight is answered for engines that send one for Range.
+    if req.method() == Method::OPTIONS {
+        return Response::builder()
+            .status(StatusCode::NO_CONTENT)
+            .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+            .header(header::ACCESS_CONTROL_ALLOW_HEADERS, "range")
+            .body(Empty::<Bytes>::new().map_err(|e| match e {}).boxed())
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR);
+    }
     if !matches!(*req.method(), Method::GET | Method::HEAD) {
         return Err(StatusCode::METHOD_NOT_ALLOWED);
     }
@@ -167,7 +178,8 @@ async fn handle(
     // carries the total size the element needs for the duration.
     let mut builder = Response::builder()
         .status(upstream_resp.status().as_u16())
-        .header(header::ACCEPT_RANGES, "bytes");
+        .header(header::ACCEPT_RANGES, "bytes")
+        .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
     for name in [header::CONTENT_TYPE, header::CONTENT_LENGTH, header::CONTENT_RANGE] {
         if let Some(v) = upstream_resp.headers().get(&name) {
             builder = builder.header(name, v);

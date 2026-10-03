@@ -152,7 +152,6 @@
 		"shortcuts_desc": "Orice îți dorești cel mai mult, o singură apasare de pe pagina principală. Adaugă orice card aici, sau alege din librărie.",
 		"jump_back_in": "Întoarce-te înapoi la",
 		"show_section": "Arata {title} pe pagina principală",
-		"hide_section": "Ascunde {title} de pe pagina principală",
 		"feed_empty": "Pagină principala este goală de dată asta.",
 		"signed_out_hint": "Conectează-te și umple pagina principală de mixuri și playlisturi făcute din ce asculți."
 	},
@@ -189,7 +188,6 @@
 		"empty_album": "Acest album este gol.",
 		"play_count": "{count} ascultări",
 		"added_by": "Adăugat de {user}",
-		"no_playlists_create": "Niciun playlist încă, creează unul în librăria ta.",
 		"search_playlists": "Caută un playlist…",
 		"no_playlists_hint": "Niciun playlist încă. Salvează unul de pe pagina lui, sau creazp unul în librărie.",
 		"empty_playlist": "Acest playlist este gol.",
@@ -327,8 +325,6 @@
 			"music_videos_hint": "Arată video când este disponibil în loc de audio simplu.",
 			"hide_videos": "Ascunde videouri în căutare",
 			"hide_videos_hint": "Arată doar audio și lansări oficiale în rezultatele de la căutare.",
-			"lyrics_provider": "Versuri sincronizate (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Preia versurile sincronizate de comunitate pentru piesele active.",
 			"blocked_artists": "Artiști blocați",
 			"blocked_artists_hint": "Artiștii blocați sunt excluși din radio, redare automată și recomandări. Playlisturile și albumele pe care le deschizi vor reda în continuare toate piesele din ele.",
 			"blocked_artists_empty": "Nimeni nu a fost blocat încă. Folosește butonul \"Blochează artiști\" din meniul unei piese.",
@@ -439,14 +435,12 @@
 			"your_name": "Numele tău",
 			"your_name_placeholder": "Numele tău",
 			"join_button": "Alătură-te sesiunii",
-			"sync_server": "Sincronizare server-ul",
 			"sync_server_placeholder": "wss://your-machine.ts.net/ws",
 			"sync_server_hint": "Serverul tău găzduit personal (de ex. URL-ul Tailscale Funnel). A fost salvat pentru data viitoare.",
 			"start_button": "Pornește o sesiune",
 			"hosting": "Se găzduiște",
 			"listening": "Se ascultă",
 			"copy_invite": "Copiază invitația",
-			"invite_copied": "Invitație copiată, trimite unui prieten",
 			"invite_copy_failed": "Nu s-a putut copia invitația",
 			"join_requests": "Solicitări de alăturare",
 			"in_room": "In sesiune ({count})",
@@ -463,9 +457,7 @@
 			"status_connected": "Conectat",
 			"status_disconnected": "Deconectat",
 			"err_enter_name": "Introdu un nume mai întâi",
-			"err_enter_server": "Introdu adresa URL a serverului tău de sincronizare",
-			"err_paste_code": "Inserează codul de invitație primit de la prietenul tău",
-			"err_paste_full_invite": "Inserează invitația completă primită de la gazdă; aceasta conține adresa serverului"
+			"err_paste_code": "Inserează codul de invitație primit de la prietenul tău"
 		}
 	},
 	"integrations": {

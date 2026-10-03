@@ -8,14 +8,23 @@ mod commands;
 mod db;
 mod diagnostics;
 mod discord;
+pub mod download;
 mod hotkeys;
 mod http;
+#[cfg(target_os = "linux")]
+mod inhibit;
 mod lastfm;
 mod listentogether;
 mod local;
 mod lyrics;
 mod media;
 mod mini;
+#[cfg(target_os = "linux")]
+mod nativevideo;
+#[cfg(windows)]
+#[path = "nativevideo_windows.rs"]
+mod nativevideo;
+mod notify;
 mod orchestrator;
 mod potoken;
 mod romanize;
@@ -27,6 +36,7 @@ mod tray;
 mod videoproxy;
 mod webview;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -81,7 +91,8 @@ fn spawn_heap_trimmer() {
 /// `media` is the one exception, and only the main window passes `true`: the player view draws a
 /// `<video>` for music videos (plan 031). That is a plain `<video src>`, so `mediasource`,
 /// `media_stream`, `media_capabilities`, `encrypted_media`, `webaudio`, `webrtc` and `webgl` all
-/// stay off. The mini player has no video surface, so it keeps the whole media stack off.
+/// stay off. The mini player has no video surface, so it keeps the whole media stack off. WebGL
+/// comes back on in the main window only while the ambient light is on ([`set_webgl`]).
 ///
 /// Applies to one webview, because WebKit settings are per-view: the main window and the mini
 /// player each cost their own web process, so each has to be told. The hidden cipher/PoToken
@@ -124,6 +135,22 @@ fn tune_webview(win: &tauri::WebviewWindow, media: bool) {
             tracing::info!(label, media, "webkit: DocumentBrowser cache, page cache + webgl off")
         }
         Err(e) => tracing::warn!(label, error = %e, "webkit tuning failed (continuing)"),
+    }
+}
+
+/// WebGL in the main window, which [`tune_webview`] turns off: the ambient light draws its glow with
+/// it (ui/src/lib/ambient.ts), so it is on exactly while that setting is. WebKit checks the setting
+/// when the page asks for a context, so a change applies without a reload.
+#[cfg(target_os = "linux")]
+pub(crate) fn set_webgl(app: &tauri::AppHandle, on: bool) {
+    use webkit2gtk::{SettingsExt, WebViewExt};
+
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.with_webview(move |wv| {
+            if let Some(settings) = WebViewExt::settings(&wv.inner()) {
+                settings.set_enable_webgl(on);
+            }
+        });
     }
 }
 
@@ -220,6 +247,31 @@ fn fatal(what: &str, detail: &str) -> ! {
     std::process::exit(1)
 }
 
+/// Whether the OS launched us at login, through the autostart entry's `--autostart`.
+///
+/// Not the argument alone: Tauri restarts (the update banner's relaunch, the tray's Restart) hand
+/// the old process's arguments on, so a copy started at login would come back hidden after every
+/// update. A restarted process inherits the environment instead, and finds [`RESTARTED_ENV`],
+/// which `run` sets once it has read this. Windows keeps it too: the updater starts the per-user
+/// NSIS installer with a plain ShellExecute, and the installer starts the new version the same way.
+static AUTOSTARTED: AtomicBool = AtomicBool::new(false);
+const RESTARTED_ENV: &str = "LIMUSIC_RESTARTED";
+
+/// What a cold launch was given, so `limusic-app 'https://music.youtube.com/watch?v=…'` opens the
+/// link once the SPA has mounted (#348). Taken once by `take_launch_args`. A launch while we are
+/// already running reaches the single-instance callback instead, which emits `open-link`. Raw
+/// strings either way: `parseYtLink` in the UI decides what is a link, so there is one parser.
+pub(crate) static LAUNCH_ARGS: std::sync::Mutex<Vec<String>> = std::sync::Mutex::new(Vec::new());
+
+/// Stay in the tray instead of showing the window: launched at login with "Start minimized to
+/// tray" on, and a tray icon to come back from. Asked by the startup safety net and by
+/// `show_main` once the SPA has mounted.
+fn should_start_minimized(db: &Db) -> bool {
+    AUTOSTARTED.load(Ordering::Relaxed)
+        && db.get_setting("start_minimized").as_deref() == Some("true")
+        && tray::available()
+}
+
 /// Tauri entry point. Applies the platform boot fixes (open-fd limit, NVIDIA/WebKit env), restores
 /// the persisted session, wires every command and plugin, and runs the event loop. context/01
 /// §startup.
@@ -228,6 +280,20 @@ pub fn run() {
     // forks, and cannot be raised for them afterwards.
     #[cfg(target_os = "linux")]
     raise_fd_limit();
+
+    // See `AUTOSTARTED`. Up here with the other env writes, before any thread exists to read it.
+    AUTOSTARTED.store(
+        std::env::args_os().any(|a| a == "--autostart")
+            && std::env::var_os(RESTARTED_ENV).is_none(),
+        Ordering::Relaxed,
+    );
+    // Not on a restart either: the relaunch replays argv, so the linked song would start over after
+    // every update. `args_os`, because `args` panics on an argument that is not UTF-8.
+    if std::env::var_os(RESTARTED_ENV).is_none() {
+        *LAUNCH_ARGS.lock().unwrap() =
+            std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
+    }
+    std::env::set_var(RESTARTED_ENV, "1");
 
     // Two separate NVIDIA/WebKitGTK failures, two separate variables. Neither substitutes for
     // the other, which is the mistake ee48c55 made.
@@ -267,12 +333,23 @@ pub fn run() {
             Ok(b) => b.split(',').next() == Some("x11"),
             Err(_) => std::env::var_os("WAYLAND_DISPLAY").is_none(),
         };
+        let on_wayland = match std::env::var("GDK_BACKEND") {
+            Ok(b) => b.split(',').next() == Some("wayland"),
+            Err(_) => std::env::var_os("WAYLAND_DISPLAY").is_some(),
+        };
+
         if on_x11
             && std::path::Path::new("/dev/nvidiactl").exists()
             && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
             && std::env::var_os("WEBKIT_DMABUF_RENDERER_FORCE_SHM").is_none()
         {
             std::env::set_var("WEBKIT_DMABUF_RENDERER_FORCE_SHM", "1");
+        }
+
+        if on_wayland && std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none() {
+            // Fixes WebKitWebProcess crashes (SIGSEGV/SIGABRT) on Arch/Hyprland and other wlroots
+            // compositors (issue #289).
+            std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
         }
     }
 
@@ -289,8 +366,12 @@ pub fn run() {
     //
     //     LIMUSIC_MULTI=1 XDG_DATA_HOME=/tmp/limusic-b ./target/debug/limusic-app
     if std::env::var_os("LIMUSIC_MULTI").is_none() {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             tray::show_main(app);
+            // `limusic-app <link>` against this instance (#348). argv[0] leads on every platform.
+            if args.len() > 1 {
+                let _ = app.emit_to("main", "open-link", &args[1..]);
+            }
         }));
     }
 
@@ -314,7 +395,7 @@ pub fn run() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec!["--autostart"]),
         ))
         // Reopen at the size/position the window was left at. Only "main": the mini widget is
         // fixed-size and the login/cipher/PoToken webviews are windows too. Size, position and
@@ -468,6 +549,10 @@ pub fn run() {
             // OS media controls (MPRIS/SMTC/NowPlaying). Its callback resolves AppState lazily, so
             // it's fine to spawn before AppState is managed. context/16, D11.
             let media = media::spawn(handle.clone());
+            // MPRIS starts at 1.0 and would show 100% until the first change.
+            if let Some(m) = &media {
+                m.set_volume(volume);
+            }
             // Taskbar preview buttons (#47). Windows-only, and a different API from the SMTC
             // session above.
             #[cfg(target_os = "windows")]
@@ -494,7 +579,7 @@ pub fn run() {
                 it,
                 clients,
                 player,
-                db,
+                db.clone(),
                 handle.clone(),
                 orchestrator,
                 lt,
@@ -519,9 +604,26 @@ pub fn run() {
             // scope is empty — the folders it may read are the ones the user picked (local.rs).
             local::allow_music_paths(&handle, &app_state.db);
 
+            // The login entry runs whichever binary last wrote it. A dev build that wrote it leaves
+            // the login launch loading the vite server, which isn't running then: tray icon, no
+            // window, "Could not connect to localhost". An AppImage moved after enabling leaves it
+            // pointing at nothing. So an installed build repoints an existing entry at itself.
+            // Only an existing one: `is_enabled` is false after a Task Manager disable on Windows,
+            // and that choice is the user's.
+            if !tauri::is_dev() {
+                use tauri_plugin_autostart::ManagerExt;
+                let al = app.autolaunch();
+                if al.is_enabled().unwrap_or(false) {
+                    if let Err(e) = al.enable() {
+                        tracing::warn!(error = %e, "could not repoint the autostart entry");
+                    }
+                }
+            }
+
             // System tray: playback controls + show/quit while running in the background.
             if let Err(e) = tray::init(&handle) {
                 tracing::warn!(error = %e, "tray init failed (continuing without tray)");
+                tray::set_available(false);
             }
 
             // System-wide global hotkeys for playback control
@@ -572,7 +674,8 @@ pub fn run() {
                             st.it.set_visitor_data(Some(vd.clone()));
                             st.db.set_setting("visitor_data", &vd);
                             tracing::info!("visitorData bootstrapped (background)");
-                            potoken.prewarm(&vd).await;
+                            let force_minter = st.db.get_setting("fast_start").as_deref() == Some("true");
+                            potoken.prewarm(&vd, force_minter).await;
                         }
                         Err(e) => {
                             tracing::warn!(error = %e, "visitorData bootstrap failed (continuing)")
@@ -632,6 +735,8 @@ pub fn run() {
             }
 
             // Pump mpv events → UI events + queue advance. context/11 events, context/14 §TrackEnded.
+            #[cfg(any(target_os = "linux", windows))]
+            let video_state = app_state.clone();
             spawn_event_pump(app_state, handle, events);
 
             // Prewarm the webviews off the first-play path (context/04 §startup). The delays let
@@ -645,9 +750,11 @@ pub fn run() {
             }
             if let Some(vd) = visitor_for_prewarm {
                 let potoken = potoken.clone();
+                let db_clone = db.clone();
                 tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(Duration::from_millis(2500)).await;
-                    potoken.prewarm(&vd).await;
+                    let force_minter = db_clone.get_setting("fast_start").as_deref() == Some("true");
+                    potoken.prewarm(&vd, force_minter).await;
                 });
             }
             // Mint-and-destroy policy (Phase-0 decision), now applied to the BotGuard V8 isolate
@@ -678,6 +785,10 @@ pub fn run() {
                 });
             }
 
+            // Ensure every .m4a file in the offline directory has a row in the DB.
+            // This self-heals after a DB reset or before the tracking column existed.
+            crate::download::sync_offline_from_disk(app.handle(), &db);
+
             // Hand the frame to the compositor when the user asked for it (issue #65). The window
             // is created undecorated, so this is the one place that reverses it; macOS never gets
             // here, its traffic lights come from `tauri.macos.conf.json`. Done before the SPA shows
@@ -691,26 +802,42 @@ pub fn run() {
 
             // The window starts hidden and the SPA shows it once it has mounted, so the saved size
             // is already applied by then (#45). Safety net: if the frontend never gets that far,
-            // show it anyway rather than leaving the app with no window at all.
+            // show it anyway rather than leaving the app with no window at all. Not when starting
+            // in the tray, where the hidden window is the point.
             if let Some(w) = app.get_webview_window("main") {
-                tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(Duration::from_secs(2)).await;
-                    if !w.is_visible().unwrap_or(true) {
-                        let _ = w.show();
-                    }
-                });
+                if !should_start_minimized(&db) {
+                    tauri::async_runtime::spawn(async move {
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                        if !w.is_visible().unwrap_or(true) {
+                            let _ = w.show();
+                        }
+                    });
+                }
             }
 
             #[cfg(target_os = "linux")]
             {
                 tune_webview_labelled(app.handle(), "main", true);
+                if db.get_setting("ambient_light").as_deref() == Some("true") {
+                    set_webgl(app.handle(), true);
+                }
+                if let Some(w) = app.get_webview_window("main") {
+                    nativevideo::install(&w, video_state);
+                }
                 spawn_heap_trimmer();
+            }
+            #[cfg(windows)]
+            {
+                if let Some(w) = app.get_webview_window("main") {
+                    nativevideo::install(&w, video_state);
+                }
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::search,
             commands::search_all,
+            commands::search_suggestions,
             commands::search_cards,
             commands::search_videos,
             commands::play,
@@ -733,6 +860,8 @@ pub fn run() {
             commands::get_playback,
             commands::video_stream,
             commands::forget_video_stream,
+            commands::native_video_rect,
+            commands::ambient_frame,
             commands::get_settings,
             commands::set_setting,
             commands::get_global_hotkeys,
@@ -753,6 +882,9 @@ pub fn run() {
             commands::remove_google_account,
             commands::open_mini,
             commands::close_mini,
+            commands::set_mini_compact,
+            commands::show_main,
+            commands::take_launch_args,
             commands::get_home,
             commands::get_home_more,
             commands::get_library,
@@ -822,6 +954,11 @@ pub fn run() {
             commands::diagnostics_summary,
             commands::save_diagnostics,
             commands::log_ui,
+            commands::download_track,
+            commands::export_track,
+            commands::get_offline_tracks,
+            commands::delete_offline_track,
+            commands::is_track_offline,
         ])
         .on_window_event(|window, event| {
             // Close-to-tray: ✕ hides the main window and playback keeps running; real quit is
@@ -946,8 +1083,12 @@ fn spawn_event_pump(
                     // Keep the tray's toggle label honest — this arm is the same chokepoint
                     // MPRIS uses, so tray state can't drift from media-key state.
                     tray::set_playing(&app, playing);
-                    state.lt_on_play_state(playing).await; // Listen Together host → broadcast
                 }
+                // Listen Together host: broadcast a pause/resume. Not from `Playing`, which also
+                // flips when a track runs out, and that arrives here after the next track was
+                // announced (`on_track_ended` loads it on this pump), with the old track's end as
+                // the position. Guests then seek the new track to it, past the end of a shorter one.
+                PlayerEvent::Paused(paused) => state.lt_on_play_state(!paused).await,
                 PlayerEvent::TrackEnded => {
                     state.on_track_ended().await;
                 }
@@ -986,6 +1127,7 @@ fn spawn_event_pump(
                     tracing::warn!(error = %msg, "lookahead preload failed");
                     state.on_lookahead_failed().await;
                 }
+                PlayerEvent::VideoFailed(audio) => state.on_video_failed(&audio).await,
                 PlayerEvent::Error(msg) => {
                     tracing::error!(error = %msg, "player error");
                     let _ = app.emit("playback-error", serde_json::json!({ "message": msg }));

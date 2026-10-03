@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "limusic",
-  "version": "1.0.1-rc.1",
+  "version": "1.1.0",
   "identifier": "com.limusic.desktop",
   "build": {
     "frontendDist": "../ui/build",
@@ -19,7 +19,7 @@
         "minHeight": 620,
         "resizable": true,
         "fullscreen": false,
-        "visible": false,
+        "visible": true,
         "decorations": false,
         "transparent": true,
         "dragDropEnabled": false

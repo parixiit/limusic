@@ -24,8 +24,12 @@
 		Vynil02Icon,
 		DashboardSquare02Icon,
 		Share08Icon,
-		PreferenceVerticalIcon
+		PreferenceVerticalIcon,
+		Download01Icon,
+		FileDownloadIcon,
+		Delete02Icon
 	} from '@hugeicons/core-free-icons';
+	import { save } from '@tauri-apps/plugin-dialog';
 	import * as api from '$lib/api';
 	import type { SongItem } from '$lib/api';
 	import { anchorMenu, ctxHost, fitMenu, NO_ANCHOR, toBody } from '$lib/menu';
@@ -50,6 +54,7 @@
 		toggleRating,
 		toggleSongLibrary
 	} from '$lib/player.svelte';
+	import { lt } from '$lib/lt.svelte';
 	import { t } from '$lib/i18n.svelte';
 	import { invalidateCachedPrefix } from '$lib/pagecache';
 	import TempoPitchDialog from './TempoPitchDialog.svelte';
@@ -63,7 +68,8 @@
 		playlistId,
 		queueIndex,
 		linksOnly = false,
-		inLibraryList = false
+		inLibraryList = false,
+		isOfflineList = false
 	}: {
 		song: SongItem;
 		/** Classes for the ⋯ trigger button (positioning differs per host: inline vs overlay). */
@@ -93,6 +99,7 @@
 		 * disappear from). A song sitting in that list because its album is saved gets neither.
 		 */
 		inLibraryList?: boolean;
+		isOfflineList?: boolean;
 	} = $props();
 
 	// Already on the home grid: the menu offers the way out rather than a second copy.
@@ -102,9 +109,11 @@
 	// Player-bar only: tempo/pitch belong to playback, not to a row you happen to be pointing at.
 	let advancedOpen = $state(false);
 	let anchor = $state(NO_ANCHOR);
+	let isOnline = $state(true);
 
 	// Click on the ⋯ opens under the button; right-click on the host row opens at the pointer.
 	function openMenu(e: MouseEvent) {
+		isOnline = navigator.onLine;
 		e.preventDefault(); // a right-click must not also raise WebKit's own menu
 		e.stopPropagation();
 		anchor = anchorMenu(e, { align: 'right' });
@@ -140,6 +149,29 @@
 	// conditions are and why is in `removableFromPlaylist` (queue.ts), where they are checkable.
 	const removable = $derived(removableFromPlaylist(song, playlistId, savedIn.map));
 
+	// "Play next" on a track that is already coming up in the queue moves it into the Play next block
+	// rather than queueing a second copy. A row the user queued, the backend moves by itself
+	// (`insert_queued`). Any other row comes out first and goes back in as a real Play next: dropped
+	// at `current + 1` unmarked, it would cut the Play next run in two, and later Play nexts scan that
+	// run from the front (`guest_insert_index`). A guest owns no queue, so theirs stays a suggestion.
+	async function playNext() {
+		const q = playback.queue;
+		// Checked again by id: the index is from when the menu opened, and an autoplay trim since
+		// then shifts every row.
+		const row = queueIndex !== undefined ? q.items[queueIndex] : undefined;
+		const upcoming =
+			row?.video_id === song.video_id && queueIndex! > q.currentIndex && lt.role !== 'guest';
+		if (upcoming && !row.queued && !row.queued_end) {
+			try {
+				await api.removeFromQueue(queueIndex!);
+			} catch (e) {
+				toast.error(String(e));
+				return;
+			}
+		}
+		enqueue([song], true);
+	}
+
 	async function removeFromPlaylist() {
 		if (!playlistId || !song.set_video_id) return;
 		const setVideoId = song.set_video_id;
@@ -171,6 +203,89 @@
 		if (at < 0) return; // already gone from the queue
 		if (at === playback.queue.currentIndex) await api.nextTrack();
 		await api.removeFromQueue(at);
+	}
+
+	let isOffline = $state(false);
+	$effect(() => {
+		if (menuOpen && !isLocal) {
+			api.isTrackOffline(song.video_id).then((v) => (isOffline = v));
+		}
+	});
+
+	async function handleDeleteOffline() {
+		try {
+			await api.deleteOfflineTrack(song.video_id);
+			isOffline = false;
+			toast.success('Removed from Downloads');
+		} catch (e) {
+			toast.error(String(e));
+		}
+	}
+
+	function escapeHtml(str: string) {
+		return str
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#039;');
+	}
+
+	async function handleDownloadOffline() {
+		try {
+			const boldTitle = `<b>${escapeHtml(song.title)}</b>`;
+			toast.info(`Downloading ${boldTitle}`, 0);
+			let unlisten: (() => void) | null = null;
+			unlisten = await api.onDownloadProgress((p) => {
+				if (p.video_id === song.video_id) {
+					if (p.status === 'completed') {
+						toast.success(`Downloaded ${boldTitle}`);
+						if (unlisten) unlisten();
+					} else if (p.status === 'failed') {
+						toast.error(p.error || `Failed to download ${boldTitle}`);
+						if (unlisten) unlisten();
+					}
+				}
+			});
+			await api.downloadTrack(song);
+		} catch (e: any) {
+			toast.error(e?.message || 'Download failed');
+		}
+	}
+
+	async function handleExportTrack() {
+		try {
+			const safeTitle = `${song.artists} - ${song.title}`.replace(/[\\/:*?"<>|]/g, '_');
+			const boldTitle = `<b>${escapeHtml(song.title)}</b>`;
+			const dest = await save({
+				filters: [
+					{ name: 'M4A Audio with Metadata & Artwork (*.m4a)', extensions: ['m4a'] }
+				],
+				defaultPath: `${safeTitle}.m4a`
+			});
+			if (dest) {
+				let finalDest = dest;
+				if (!finalDest.includes('.')) {
+					finalDest = `${finalDest}.m4a`;
+				}
+				toast.info(`Exporting ${boldTitle}`, 0);
+				let unlisten: (() => void) | null = null;
+				unlisten = await api.onDownloadProgress((p) => {
+					if (p.video_id === song.video_id) {
+						if (p.status === 'completed') {
+							toast.success(`Exported ${boldTitle}`);
+							if (unlisten) unlisten();
+						} else if (p.status === 'failed') {
+							toast.error(p.error || `Failed to export ${boldTitle}`);
+							if (unlisten) unlisten();
+						}
+					}
+				});
+				await api.exportTrack(song, finalDest);
+			}
+		} catch (e: any) {
+			toast.error(e?.message || 'Export failed');
+		}
 	}
 </script>
 
@@ -216,7 +331,7 @@
 		{#if !linksOnly}
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
-				onclick={(e) => run(e, () => enqueue([song], true))}
+				onclick={(e) => run(e, playNext)}
 			>
 				<HugeiconsIcon icon={ArrowUpNarrowWideIcon} class="h-4 w-4" /> {t('player.play_next')}
 			</button>
@@ -229,7 +344,7 @@
 		{/if}
 		<!-- Radio is the one action worth having in the player bar too (`linksOnly`): it's how you
 		     say "keep going with more like this" about the song that's playing. -->
-		{#if !isLocal}
+		{#if !isLocal && !isOfflineList && isOnline}
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) => run(e, () => startRadio('song', song.video_id, song.title))}
@@ -240,7 +355,7 @@
 		<!-- In the player bar (`linksOnly`) like has its own button, which drops below lg to leave the
 		     title room, so the menu carries it at that width instead. Dislike has a button of its own only in the
 		     mini player, so here it stays visible at every width. -->
-		{#if !isLocal}
+		{#if !isLocal && !isOfflineList && isOnline}
 			<button
 				class="w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10 {linksOnly
 					? 'flex lg:hidden'
@@ -289,7 +404,7 @@
 		{/if}
 		<!-- Not gated on `artist_id`: a row whose byline links nothing is exactly the case this
 		     exists for, and the name is a key in its own right. -->
-		{#if !isLocal && song.artists?.trim()}
+		{#if !isLocal && !isOfflineList && isOnline && song.artists?.trim()}
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) =>
@@ -333,7 +448,7 @@
 			<HugeiconsIcon icon={DashboardSquare02Icon} class="h-4 w-4" />
 			{isPick ? t('home.remove_shortcut') : t('home.add_shortcut')}
 		</button>
-		{#if !isLocal}
+		{#if !isLocal && !isOfflineList && isOnline}
 			<button
 				class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
 				onclick={(e) =>
@@ -348,6 +463,29 @@
 					)}
 			>
 				<HugeiconsIcon icon={Share08Icon} class="h-4 w-4" /> {t('player.share')}
+			</button>
+		{/if}
+		{#if !isLocal}
+			{#if isOffline}
+				<button
+					class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10 text-destructive"
+					onclick={(e) => run(e, handleDeleteOffline)}
+				>
+					<HugeiconsIcon icon={Delete02Icon} class="h-4 w-4" /> Remove
+				</button>
+			{:else}
+				<button
+					class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
+					onclick={(e) => run(e, handleDownloadOffline)}
+				>
+					<HugeiconsIcon icon={Download01Icon} class="h-4 w-4" /> Download
+				</button>
+			{/if}
+			<button
+				class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent/10"
+				onclick={(e) => run(e, handleExportTrack)}
+			>
+				<HugeiconsIcon icon={FileDownloadIcon} class="h-4 w-4" /> Export
 			</button>
 		{/if}
 		{#if linksOnly}

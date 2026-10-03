@@ -152,7 +152,6 @@
 		"shortcuts_desc": "",
 		"jump_back_in": "",
 		"show_section": "",
-		"hide_section": "",
 		"feed_empty": "",
 		"signed_out_hint": ""
 	},
@@ -189,7 +188,6 @@
 		"empty_album": "",
 		"play_count": "",
 		"added_by": "",
-		"no_playlists_create": "",
 		"search_playlists": "",
 		"no_playlists_hint": "",
 		"empty_playlist": "",
@@ -333,9 +331,7 @@
 			"blocked_artists_remove": "",
 			"blocked_artists_show_all": "",
 			"blocked_artists_show_less": "",
-			"blocked_artists_copy": "",
-			"lyrics_provider": "",
-			"lyrics_provider_hint": ""
+			"blocked_artists_copy": ""
 		},
 		"data": {
 			"clear_cache": "",
@@ -439,14 +435,12 @@
 			"your_name": "",
 			"your_name_placeholder": "",
 			"join_button": "",
-			"sync_server": "",
 			"sync_server_placeholder": "",
 			"sync_server_hint": "",
 			"start_button": "",
 			"hosting": "",
 			"listening": "",
 			"copy_invite": "",
-			"invite_copied": "",
 			"invite_copy_failed": "",
 			"join_requests": "",
 			"in_room": "",
@@ -463,9 +457,7 @@
 			"status_connected": "",
 			"status_disconnected": "",
 			"err_enter_name": "",
-			"err_enter_server": "",
-			"err_paste_code": "",
-			"err_paste_full_invite": ""
+			"err_paste_code": ""
 		}
 	},
 	"integrations": {

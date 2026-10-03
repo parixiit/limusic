@@ -58,8 +58,28 @@ export const prefs = $state({
 	musicVideos: false,
 	/** `discord_rpc`. Two places toggle it (the titlebar button and the Discord settings tab) and
 	 *  each drew its own indicator, so turning it off in one left the other stale. One owner. */
-	discordRpc: false
+	discordRpc: false,
+	/** Linux: mpv draws the music video under the page (nativevideo.rs) instead of a `<video>`
+	 *  element. Cleared if it turns out there is no GL surface, which hands the picture back. */
+	nativeVideo: false,
+	/** `ambient_light`: the player view glows with the music video's colours (Ambient.svelte). */
+	ambient: false,
+	/** `autoplay`: the queue keeps going with similar songs. Switched from the queue panel as well
+	 *  as Settings, so both read it here. */
+	autoplay: true
 });
+
+/** Rust drops the upcoming autoplay tracks when this goes off, and tops a short queue up when it
+ *  comes on, so the queue shows what will actually play. */
+export function setAutoplay(on: boolean): void {
+	prefs.autoplay = on;
+	api.setSetting('autoplay', on ? 'true' : 'false').catch((e) => toast.error(String(e)));
+}
+
+/** Linux: the tracks mpv has the music video for (`video-ready`), so the view knows a picture is
+ *  coming rather than showing a black box for a track with none.
+ *  ponytail: grows by one short key per music video played, for the session. */
+export const videoReady: Record<string, true> = $state({});
 
 /** videoId → the in-flight or settled loopback URL for its music video (null when it has none).
  *
@@ -1177,29 +1197,52 @@ export function toggleSidebar() {
 	localStorage.setItem('sidebar_collapsed', ui.sidebarCollapsed ? '1' : '0');
 }
 
-export type Toast = { msg: string; kind: 'info' | 'success' | 'error' };
+export type Toast = {
+	msg: string;
+	kind: 'info' | 'success' | 'error';
+	action?: { label: string; onClick: () => void };
+};
 
 // A counter, not the toast itself: $state proxies the stored object, so `ui.toast === t` is never
 // true and the toast would never clear. It also means a repeated message can't cut its own retry short.
 let seq = 0;
 
-function show(msg: string, kind: Toast['kind']) {
+function show(
+	msg: string,
+	kind: Toast['kind'],
+	duration = 2500,
+	action?: { label: string; onClick: () => void }
+) {
 	const id = ++seq;
 	// The one chokepoint every `toast.error(String(e))` and every `playback-error` event goes
 	// through, so a dead connection is worded once here instead of at forty call sites. Anything
 	// that isn't a network failure (including every `t()` string passing through) is untouched.
-	ui.toast = { msg: friendlyNetError(msg, t('errors.unreachable')), kind };
-	setTimeout(() => {
-		if (seq === id) ui.toast = null;
-	}, 2500);
+	ui.toast = { msg: friendlyNetError(msg, t('errors.unreachable')), kind, action };
+	if (duration > 0) {
+		setTimeout(() => {
+			if (seq === id) ui.toast = null;
+		}, duration);
+	}
+	return id;
 }
 
 /** Sonner-shaped. Bare `toast(msg)` is a neutral notice; .success/.error pick the icon. */
-export const toast = Object.assign((msg: string) => show(msg, 'info'), {
-	info: (msg: string) => show(msg, 'info'),
-	success: (msg: string) => show(msg, 'success'),
-	error: (msg: string) => show(msg, 'error')
-});
+export const toast = Object.assign(
+	(msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+		show(msg, 'info', duration, action),
+	{
+		info: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'info', duration, action),
+		success: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'success', duration, action),
+		error: (msg: string, duration?: number, action?: { label: string; onClick: () => void }) =>
+			show(msg, 'error', duration, action),
+		dismiss: () => {
+			seq++;
+			ui.toast = null;
+		}
+	}
+);
 
 export function openShare(item: BrowseItem) {
 	ui.share = item;
@@ -1213,6 +1256,56 @@ export function openAddToPlaylist(song: SongItem) {
  *  "New playlist" row hands over whatever it was opened for. */
 export function openNewPlaylist(songs: SongItem[] = []) {
 	ui.newPlaylist = { songs };
+}
+
+async function addToOne(
+	target: BrowseItem,
+	songs: SongItem[],
+	allowDuplicates: boolean
+): Promise<{ added: SongItem[]; dupes: number; failure: string | null; aborted: boolean }> {
+	const local = api.isLocalPlaylist(target.id);
+	const epoch = auth.epoch;
+	let added: SongItem[] = [];
+	let confirmed: SongItem[] = [];
+	let failure: string | null = null;
+	if (local) {
+		const went = await api.addToLocalPlaylist(target.id, songs);
+		if (epoch !== auth.epoch) {
+			return { added: [], dupes: 0, failure: null, aborted: true };
+		}
+		added = songs.filter((_, i) => went[i]);
+		confirmed = songs;
+	} else {
+		// YouTube refuses a track the playlist already holds, so only the ones it accepted get
+		// counted and drawn: an optimistic row for a refused add is a row that can never be
+		// removed (no setVideoId behind it) until the app restarts.
+		for (const song of songs) {
+			if (epoch !== auth.epoch) break;
+			try {
+				if (await api.addToPlaylist(target.id, song.video_id, allowDuplicates)) added.push(song);
+				confirmed.push(song);
+			} catch (e) {
+				failure = String(e);
+				break;
+			}
+		}
+		// A switched account owns different caches. Stop the batch and never patch those.
+		if (epoch !== auth.epoch) {
+			return { added: [], dupes: 0, failure: null, aborted: true };
+		}
+	}
+	if (epoch !== auth.epoch) {
+		return { added: [], dupes: 0, failure: null, aborted: true };
+	}
+	const dupes = confirmed.length - added.length;
+	// Every song, not just the accepted ones: a refusal means the playlist already holds it,
+	// so its "saved" mark is right either way.
+	noteSavedIn(target.id, confirmed.map((s) => s.video_id));
+	if (added.length) {
+		bumpLibraryTrackCount(target.id, added.length);
+		notePlaylistAdd(target.id, added);
+	}
+	return { added, dupes, failure, aborted: false };
 }
 
 /**
@@ -1229,52 +1322,23 @@ export async function addSongsToPlaylist(target: BrowseItem, songs: SongItem[]):
 		toast.error(t('selection.local_playlist'));
 		return;
 	}
-	const epoch = auth.epoch;
 	ui.addPending = true;
-	let added: SongItem[] = [];
-	let confirmed: SongItem[] = [];
-	let failure: string | null = null;
+	const epoch = auth.epoch;
 	try {
-		if (local) {
-			const went = await api.addToLocalPlaylist(target.id, songs);
-			added = songs.filter((_, i) => went[i]);
-			confirmed = songs;
-		} else {
-			// YouTube refuses a track the playlist already holds, so only the ones it accepted get
-			// counted and drawn: an optimistic row for a refused add is a row that can never be
-			// removed (no setVideoId behind it) until the app restarts.
-			for (const song of songs) {
-				if (epoch !== auth.epoch) break;
-				try {
-					if (await api.addToPlaylist(target.id, song.video_id)) added.push(song);
-					confirmed.push(song);
-				} catch (e) {
-					failure = String(e);
-					break;
-				}
-			}
-			// A switched account owns different caches. Stop the batch and never patch those.
-			if (epoch !== auth.epoch) {
-				toast.error(t('selection.account_changed'));
-				return;
-			}
-		}
-		const dupes = confirmed.length - added.length;
-		// Every song, not just the accepted ones: a refusal means the playlist already holds it,
-		// so its "saved" mark is right either way.
-		noteSavedIn(target.id, confirmed.map((s) => s.video_id));
-		if (added.length) {
-			bumpLibraryTrackCount(target.id, added.length);
-			notePlaylistAdd(target.id, added);
+		const res = await addToOne(target, songs, false);
+		if (epoch !== auth.epoch || res.aborted) {
+			toast.error(t('selection.account_changed'));
+			return;
 		}
 		const playlist = target.title;
+		const { added, dupes, failure } = res;
 		if (failure !== null) {
 			toast.error(
 				t('selection.playlist_partial', {
 					added: added.length,
 					playlist,
 					duplicates: dupes,
-					remaining: songs.length - confirmed.length,
+					remaining: songs.length - added.length - dupes,
 					error: failure
 				})
 			);
@@ -1291,6 +1355,75 @@ export async function addSongsToPlaylist(target: BrowseItem, songs: SongItem[]):
 				added.length > 1
 					? t('toasts.added_songs', { count: added.length, playlist })
 					: t('toasts.added_one', { playlist })
+			);
+		}
+	} catch (e) {
+		toast.error(String(e));
+	} finally {
+		ui.addPending = false;
+	}
+}
+
+/**
+ * Add songs to multiple playlists sequentially. 'skip' leaves duplicates to the playlist itself:
+ * YouTube refuses them and a playlist on this machine never takes one. The savedIn index is not
+ * asked, because it can still list a track that was removed on youtube.com.
+ */
+export async function addSongsToPlaylists(
+	targets: BrowseItem[],
+	songs: SongItem[],
+	mode: 'skip' | 'anyway'
+): Promise<void> {
+	if (ui.addPending || !targets.length || !songs.length) return;
+	if (targets.length === 1 && mode === 'skip') {
+		await addSongsToPlaylist(targets[0], songs);
+		return;
+	}
+	ui.addPending = true;
+	const epoch = auth.epoch;
+	const results: { target: BrowseItem; added: number; dupes: number }[] = [];
+	try {
+		for (const target of targets) {
+			if (epoch !== auth.epoch) {
+				toast.error(t('selection.account_changed'));
+				return;
+			}
+			const local = api.isLocalPlaylist(target.id);
+			if (!local && songs.some((s) => api.isLocalId(s.video_id))) {
+				toast.error(t('selection.local_playlist'));
+				return;
+			}
+			const res = await addToOne(target, songs, mode === 'anyway');
+			if (epoch !== auth.epoch || res.aborted) {
+				toast.error(t('selection.account_changed'));
+				return;
+			}
+			if (res.failure !== null) {
+				const done = results.length;
+				toast.error(t('selection.playlists_partial', { done, total: targets.length, error: res.failure }));
+				return;
+			}
+			results.push({ target, added: res.added.length, dupes: res.dupes });
+		}
+		const touched = results.filter((r) => r.added > 0);
+		const dupesTotal = results.reduce((n, r) => n + r.dupes, 0);
+		if (touched.length === 0) {
+			toast(targets.length === 1 ? t('toasts.already_in', { playlist: targets[0].title }) : t('toasts.already_in_selected'));
+		} else if (touched.length === 1) {
+			const { target, added, dupes } = touched[0];
+			const playlist = target.title;
+			toast.success(
+				dupes
+					? t('toasts.added_to_playlist_dupes', { count: added, playlist, dupes })
+					: added > 1
+						? t('toasts.added_songs', { count: added, playlist })
+						: t('toasts.added_one', { playlist })
+			);
+		} else {
+			toast.success(
+				dupesTotal
+					? t('toasts.added_to_playlists_dupes', { count: touched.length, dupes: dupesTotal })
+					: t('toasts.added_to_playlists', { count: touched.length })
 			);
 		}
 	} catch (e) {
@@ -1361,11 +1494,12 @@ export function initApp(mini = false): () => void {
 			// Warm the music video now rather than when the view opens: the resolve is a round trip
 			// to YouTube, and paid here it overlaps the track starting instead of the user's click.
 			// Not in the mini player, which has no player view to show it in.
-			if (!mini && prefs.musicVideos && n.isVideo) videoUrlFor(n.videoId);
+			if (!mini && prefs.musicVideos && !prefs.nativeVideo && n.isVideo) videoUrlFor(n.videoId);
 		}),
 		// YouTube's own answer for a track whose row never stated one (issue #93). Into the
 		// override map as well as the player bar: the same song is on screen as a list row too,
 		// and `ratingOf` reads that map for every row that is not the playing one.
+		api.onVideoReady((videoId) => (videoReady[videoId] = true)),
 		api.onRating((videoId, rating) => {
 			ratings[videoId] = rating;
 			capOverrides(ratings);
@@ -1382,7 +1516,6 @@ export function initApp(mini = false): () => void {
 				...playback.queue,
 				items,
 				currentIndex: q.currentIndex,
-				playedFrom: q.playedFrom,
 				shuffle: q.shuffle,
 				repeat: q.repeat,
 				sourceName: q.sourceName,
@@ -1402,8 +1535,7 @@ export function initApp(mini = false): () => void {
 			playback.queue = {
 				...playback.queue,
 				items,
-				currentIndex: q.currentIndex,
-				playedFrom: q.playedFrom
+				currentIndex: q.currentIndex
 			};
 		}),
 		api.onPosition((p) => {
@@ -1477,7 +1609,10 @@ export function initApp(mini = false): () => void {
 	api.getSettings()
 		.then((s) => {
 			prefs.musicVideos = s.music_videos === 'true';
+			prefs.nativeVideo = s.native_video === 'true';
+			prefs.ambient = s.ambient_light === 'true';
 			prefs.discordRpc = s.discord_rpc === 'true';
+			prefs.autoplay = s.autoplay !== 'false';
 			// Half of what the app shows is YouTube's own text, and Rust asks for it in the language
 			// this setting holds (#274). It reads the setting at startup, before the SPA exists to
 			// tell it anything, so the two disagree on a fresh install, on a language taken from the

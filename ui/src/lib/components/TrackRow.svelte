@@ -6,13 +6,14 @@
 		PlayIcon,
 		PlayListAddIcon,
 		ThumbsDownIcon,
-		ThumbsUpIcon
+		ThumbsUpIcon,
+		VolumeHighIcon
 	} from '@hugeicons/core-free-icons';
 	import * as api from '$lib/api';
 	import type { SongItem } from '$lib/api';
 	import { thumb } from '$lib/thumb';
 	import { lt } from '$lib/lt.svelte';
-	import { anySaved, isLiked, ratingOf, savedPlaylists, toggleRating } from '$lib/player.svelte';
+	import { anySaved, isLiked, openAddManyToPlaylist, ratingOf, savedPlaylists, toast, toggleRating } from '$lib/player.svelte';
 	import SavedInPlaylists from './SavedInPlaylists.svelte';
 	import TrackMenu from './TrackMenu.svelte';
 	import ArtistLine from './ArtistLine.svelte';
@@ -38,7 +39,8 @@
 		inLibraryList = false,
 		selection,
 		selectionKey,
-		lazy = false
+		lazy = false,
+		isOfflineList = false
 	}: {
 		song: SongItem;
 		/** Position badge when set (playlist/queue); omitted for flat search results. */
@@ -85,6 +87,8 @@
 		 * row below.
 		 */
 		lazy?: boolean;
+		/** Hides internet-dependent menu options for offline track lists. */
+		isOfflineList?: boolean;
 	} = $props();
 	const selectionDescriptionId = $props.id();
 
@@ -95,6 +99,24 @@
 	// Space/click rebinding.
 	const selectable = $derived(!!selection?.active && selectionKey !== undefined);
 	const selected = $derived(selection?.has(selectionKey) ?? false);
+
+	// In select mode the row's menu acts on the whole selection when this row is in it; otherwise it
+	// keeps adding just this row. While pages are still being fetched the floating bar disables its
+	// button, so this says why instead of quietly adding the one row.
+	const rowAdd = $derived(
+		onAdd
+			? () => {
+					if (!(selectable && selected && selection!.count > 1)) onAdd();
+					else if (selection!.pending || selection!.selectingAll)
+						toast(
+							selection!.pending
+								? t('selection.pending', { count: selection!.pending })
+								: t('common.loading')
+						);
+					else openAddManyToPlaylist([...selection!.songs]);
+				}
+			: undefined
+	);
 
 	function select(range = false) {
 		if (selection && selectionKey !== undefined) selection.toggle(selectionKey, range);
@@ -248,7 +270,18 @@
 						? 'text-primary'
 						: 'text-muted-foreground'}"
 				>
-					<span class={selectable ? '' : 'group-hover:invisible'}>{index + 1}</span>
+					<!-- Kept in flow on the playing row too, invisible: it is what sizes the column. -->
+					<span class={active ? 'invisible' : selectable ? '' : 'group-hover:invisible'}>
+						{index + 1}
+					</span>
+					{#if active}
+						<!-- The playing row's mark in place of its number. Still, on purpose: anything that
+						     loops keeps the compositor from ever idling while a track plays. -->
+						<HugeiconsIcon
+							icon={VolumeHighIcon}
+							class="absolute inset-0 m-auto h-3.5 w-3.5 {selectable ? '' : 'group-hover:invisible'}"
+						/>
+					{/if}
 					<HugeiconsIcon
 						icon={guestAdd ? PlayListAddIcon : PlayIcon}
 						class="invisible absolute inset-0 m-auto h-3.5 w-3.5 {selectable ? '' : 'group-hover:visible'}"
@@ -284,12 +317,6 @@
 			</div>
 			<div class="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
 				<ArtistLine runs={song.artist_runs} text={song.artists} />
-				{#if compact && duration}
-					<!-- No leading dot with nothing before it: a search row can come back artist-less
-					     (YouTube drops the name when the query is the artist), leaving the length alone
-					     on the line. -->
-					<span class="shrink-0">{song.artists.trim() ? '· ' : ''}{duration}</span>
-				{/if}
 			</div>
 		</div>
 	</div>
@@ -372,12 +399,13 @@
 		{/if}
 		<TrackMenu
 			{song}
-			{onAdd}
+			onAdd={rowAdd}
 			{onRemove}
 			{removeLabel}
 			{playlistId}
 			{queueIndex}
 			{inLibraryList}
+			{isOfflineList}
 			triggerClass="cursor-pointer rounded-md p-1.5 text-muted-foreground hover:bg-accent/20 hover:text-foreground {compact
 				? ''
 				: 'invisible group-focus-within:visible group-hover:visible'}"

@@ -1,0 +1,375 @@
+name: Build All (Windows, Linux & macOS)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feat/download-and-offline
+      - master
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build Windows (x86_64)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      MPV_DEV_URL: https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260610/mpv-dev-x86_64-20260610-git-304426c.7z
+      MPV_DIR: ${{ github.workspace }}\.libmpv
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bake in player-cipher registry
+        shell: bash
+        run: |
+          FARADAY=https://raw.githubusercontent.com/MetrolistGroup/faraday/master/registry/player_configs.json
+          ZEMER=https://raw.githubusercontent.com/ZemerTeam/zemer-cipher/master/library/src/main/assets/player_configs.json
+          tmp="$(mktemp)"
+          for url in "$FARADAY" "$ZEMER"; do
+            if curl -fsSL --max-time 30 "$url" -o "$tmp" && jq -e '(.players | objects | length) > 0' "$tmp" >/dev/null 2>&1; then
+              cp "$tmp" src-tauri/cipher_configs.json
+              echo "bundled player configs from $url"
+              exit 0
+            fi
+          done
+          echo "::warning::no player-cipher registry reachable"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        shell: bash
+        run: cd ui && pnpm install --frozen-lockfile
+
+      - name: Setup Rust toolchain
+        shell: bash
+        run: rustup default stable-msvc
+
+      - name: Resolve RUSTFLAGS
+        shell: bash
+        run: |
+          FLAGS="-L native=${{ github.workspace }}\.libmpv"
+          SYSROOT="$(rustc --print sysroot | tr '\\' '/')"
+          RUST_LLD="$SYSROOT/lib/rustlib/x86_64-pc-windows-msvc/bin/rust-lld.exe"
+          if [ -f "$RUST_LLD" ]; then
+            FLAGS="$FLAGS -C linker-flavor=lld-link -C linker=$RUST_LLD"
+            echo "linking with rust-lld ($RUST_LLD)"
+          fi
+          echo "RUSTFLAGS=$FLAGS" >> "$GITHUB_ENV"
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Install Tauri CLI
+        shell: bash
+        run: npm install -g "@tauri-apps/cli@2.11.5"
+
+      - name: Build libmpv import library
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force -Path "$env:MPV_DIR" | Out-Null
+          curl.exe -fsSL -o "$env:MPV_DIR\mpv-dev.7z" "$env:MPV_DEV_URL"
+          7z x "$env:MPV_DIR\mpv-dev.7z" -o"$env:MPV_DIR" -y | Out-Null
+          if (-not (Test-Path "$env:MPV_DIR\libmpv-2.dll")) { throw "libmpv-2.dll not found in dev package" }
+
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -property installationPath
+          Import-Module "$vs\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+          Enter-VsDevShell -VsInstallPath $vs -SkipAutomaticLocation -DevCmdArguments '-arch=x64 -host_arch=x64'
+
+          Set-Location "$env:MPV_DIR"
+          $names = & dumpbin /exports libmpv-2.dll |
+            Select-String -Pattern '^\s+\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\w+)' |
+            ForEach-Object { $_.Matches[0].Groups[1].Value }
+          @("EXPORTS") + ($names | ForEach-Object { "    $_" }) | Set-Content -Path mpv.def -Encoding ascii
+          & lib /def:mpv.def /name:libmpv-2.dll /out:mpv.lib /machine:x64
+          Copy-Item "$env:MPV_DIR\libmpv-2.dll" "$env:GITHUB_WORKSPACE\src-tauri\libmpv-2.dll" -Force
+
+      - name: Build frontend
+        shell: bash
+        run: cd ui && pnpm build
+
+      - name: Build Windows binaries
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""}}'
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
+            tauri build --bundles nsis --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: limusic-windows-x86_64
+          path: |
+            target/release/bundle/nsis/*.exe
+            target/release/limusic-app.exe
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux (x86_64 / AppImage & Deb)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bake in player-cipher registry
+        shell: bash
+        run: |
+          FARADAY=https://raw.githubusercontent.com/MetrolistGroup/faraday/master/registry/player_configs.json
+          ZEMER=https://raw.githubusercontent.com/ZemerTeam/zemer-cipher/master/library/src/main/assets/player_configs.json
+          tmp="$(mktemp)"
+          for url in "$FARADAY" "$ZEMER"; do
+            if curl -fsSL --max-time 30 "$url" -o "$tmp" && jq -e '(.players | objects | length) > 0' "$tmp" >/dev/null 2>&1; then
+              cp "$tmp" src-tauri/cipher_configs.json
+              echo "bundled player configs from $url"
+              exit 0
+            fi
+          done
+          echo "::warning::no player-cipher registry reachable"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev \
+            libssl-dev libdbus-1-dev libmpv-dev patchelf file \
+            libjack-jackd2-0 glib-networking mold \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-gl \
+            gstreamer1.0-libav gstreamer1.0-alsa appstream
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: cd ui && pnpm install --frozen-lockfile
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Install Tauri CLI
+        run: npm install -g "@tauri-apps/cli@2.11.5"
+
+      - name: Build frontend
+        run: cd ui && pnpm build
+
+      - name: Build Linux AppImage and Deb
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          NO_STRIP: "true"
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""}}'
+          else
+            echo "TAURI_SIGNING_PRIVATE_KEY not set, building without update signature"
+            tauri build --bundles appimage,deb --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+          fi
+          if [ -f "scripts/fix-appdir-tls.sh" ]; then
+            chmod +x scripts/fix-appdir-tls.sh
+            ./scripts/fix-appdir-tls.sh || true
+          fi
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: limusic-linux-x86_64
+          path: |
+            target/release/bundle/appimage/*.AppImage
+            target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  build-macos:
+    name: Build macOS (Apple Silicon / aarch64)
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bake in player-cipher registry
+        run: |
+          FARADAY=https://raw.githubusercontent.com/MetrolistGroup/faraday/master/registry/player_configs.json
+          ZEMER=https://raw.githubusercontent.com/ZemerTeam/zemer-cipher/master/library/src/main/assets/player_configs.json
+          tmp="$(mktemp)"
+          for url in "$FARADAY" "$ZEMER"; do
+            if curl -fsSL --max-time 30 "$url" -o "$tmp" && jq -e '(.players | objects | length) > 0' "$tmp" >/dev/null 2>&1; then
+              cp "$tmp" src-tauri/cipher_configs.json
+              echo "bundled player configs from $url"
+              exit 0
+            fi
+          done
+          echo "::warning::no player-cipher registry reachable"
+
+      - name: Install dependencies (mpv + dylibbundler)
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: "1"
+          HOMEBREW_NO_INSTALL_CLEANUP: "1"
+          HOMEBREW_NO_ENV_HINTS: "1"
+        run: |
+          brew install mpv dylibbundler
+          PREFIX="$(brew --prefix)"
+          echo "LIBRARY_PATH=$PREFIX/lib" >> "$GITHUB_ENV"
+          echo "BREW_PREFIX=$PREFIX" >> "$GITHUB_ENV"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: ui/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: cd ui && pnpm install --frozen-lockfile
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: . -> target
+
+      - name: Install Tauri CLI
+        run: npm install -g "@tauri-apps/cli@2.11.5"
+
+      - name: Build frontend
+        run: cd ui && pnpm build
+
+      - name: Build macOS App
+        run: |
+          tauri build --bundles app --config '{"build":{"beforeBuildCommand":""},"bundle":{"createUpdaterArtifacts":false}}'
+
+      - name: Bundle dependencies into .app
+        timeout-minutes: 6
+        run: |
+          set -euo pipefail
+          APP=target/release/bundle/macos/limusic.app
+          BIN="$APP/Contents/MacOS/$(plutil -extract CFBundleExecutable raw "$APP/Contents/Info.plist")"
+          dylibbundler -cd -of -b -x "$BIN" -d "$APP/Contents/Frameworks" -p "@executable_path/../Frameworks" -s "$BREW_PREFIX/lib" < /dev/null
+
+      - name: Deduplicate rpaths & re-sign app
+        run: |
+          set -euo pipefail
+          APP=target/release/bundle/macos/limusic.app
+          find "$APP" -type f -print0 | while IFS= read -r -d '' f; do
+            otool -l "$f" 2>/dev/null \
+              | awk '/LC_RPATH/{g=1} g&&/^[[:space:]]*path /{sub(/^[[:space:]]*path /, ""); sub(/ \(offset [0-9]+\)$/, ""); print; g=0}' \
+              | sort | uniq -c | while read -r n rp; do
+                  [ "$n" -gt 1 ] || continue
+                  i=1
+                  while [ "$i" -lt "$n" ]; do
+                    install_name_tool -delete_rpath "$rp" "$f"
+                    i=$((i + 1))
+                  done
+                done
+          done
+          codesign --force --deep --sign - "$APP"
+
+      - name: Build DMG
+        run: |
+          set -euo pipefail
+          VERSION="$(jq -r .version src-tauri/tauri.conf.json)"
+          APP=target/release/bundle/macos/limusic.app
+          DMG="target/release/bundle/dmg/limusic_${VERSION}_aarch64.dmg"
+          STAGE="$(mktemp -d)/Limusic"
+          mkdir -p "$STAGE" "$(dirname "$DMG")"
+          ditto "$APP" "$STAGE/limusic.app"
+          ln -s /Applications "$STAGE/Applications"
+          hdiutil create -volname "Limusic" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: limusic-macos-aarch64
+          path: |
+            target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  publish-release:
+    name: Publish GitHub Release (on tag)
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: limusic-windows-x86_64
+          path: release-artifacts/windows
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: limusic-linux-x86_64
+          path: release-artifacts/linux
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: limusic-macos-aarch64
+          path: release-artifacts/macos
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-artifacts/windows/**/*
+            release-artifacts/linux/**/*
+            release-artifacts/macos/**/*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+

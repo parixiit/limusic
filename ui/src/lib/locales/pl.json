@@ -164,7 +164,8 @@
 		"add_to_playlist": "Dodaj do playlisty",
 		"pin_to_top": "Przypnij",
 		"unpin": "Odepnij",
-		"remove_from_this_playlist": "Remove from this playlista"
+		"remove_from_this_playlist": "Remove from this playlista",
+		"back_to": "Powrót do {title}"
 	},
 	"home": {
 		"good_morning": "Dzień dobry",
@@ -180,10 +181,31 @@
 		"shortcuts_desc": "Jedno kliknięcie ze strony głównej. Przeciągnij tutaj dowolną kartę lub wybierz z biblioteki.",
 		"jump_back_in": "Wróć do słuchania",
 		"show_section": "Pokaż {title} na stronie głównej",
-		"hide_section": "Ukryj {title} na stronie głównej",
 		"feed_empty": "Tym razem strona główna jest pusta.",
 		"signed_out_hint": "Zaloguj się, a strona główna wypełni się miksami i playlistami tworzonymi na podstawie tego, czego słuchasz.",
-		"add_to_end": "Dodaj na koniec"
+		"add_to_end": "Dodaj na koniec",
+		"edit_home_desc": "Zmiany pojawiają się na stronie na bieżąco, w miarę ich wprowadzania.",
+		"look": "Wygląd",
+		"card_size": "Rozmiar karty",
+		"card_size_desc": "Jak duże są albumy, playlisty i wykonawcy na półkach.",
+		"card_small": "Mały",
+		"card_medium": "Średni",
+		"card_large": "Duży",
+		"mood_chips": "Filtry nastroju",
+		"mood_chips_desc": "Rząd chipów nad feedem, który zawęża go do jednego nastroju lub gatunku.",
+		"artwork_backdrop": "Okładka za powitaniem",
+		"artwork_backdrop_desc": "Podbarw nagłówek kolorem okładki tego, co jest aktualnie odtwarzane.",
+		"sections": "Sekcje",
+		"sections_shown": "Wyświetlono {shown} z {total}",
+		"turn_all_off": "Wyłącz wszystkie",
+		"turn_all_on": "Włącz wszystkie",
+		"sections_hint": "Przeciągnij sekcję, aby ją przenieść, lub ustaw fokus na jej uchwycie i użyj klawiszy strzałek. Ukryte sekcje zachowują swoje miejsce.",
+		"move_section": "Przenieś {title}",
+		"moved_section": "{title} — przeniesiono na pozycję {position} z {total}",
+		"new_section": "Nowy",
+		"show_new": "Pokaż nowe sekcje",
+		"show_new_desc": "YouTube z czasem dodaje nowe półki i zmienia ich nazwy. Gdy ta opcja jest wyłączona, nowe półki pojawiają się jako ukryte i czekają tutaj, aż je włączysz.",
+		"all_hidden": "Wszystko na stronie głównej jest wyłączone."
 	},
 	"history": {
 		"title": "Historia",
@@ -218,7 +240,6 @@
 		"empty_album": "Ten album jest pusty.",
 		"play_count": "Odtworzenia: {count}",
 		"added_by": "Dodane przez {user}",
-		"no_playlists_create": "Brak playlist – utwórz ją w Bibliotece.",
 		"search_playlists": "Przeszukaj playlisty…",
 		"no_playlists_hint": "Brak playlist. Zapisz jakąś ze jej strony lub utwórz nową w Bibliotece.",
 		"empty_playlist": "Ta playlista jest pusta.",
@@ -245,7 +266,19 @@
 		"no_artists": "Brak wykonawców. Pojawią się, gdy zapiszesz ich utwory lub albumy.",
 		"on_repeat": "Na powtórzeniu",
 		"on_repeat_subtitle": "{count} utworów najczęściej odtwarzanych w tym miesiącu",
-		"songs_count": "Utwory: {count}"
+		"songs_count": "Utwory: {count}",
+		"delete_playlist_desc": "„{title}” zostanie usunięte z Twojego konta YouTube Music. Tej operacji nie można cofnąć.",
+		"delete_playlist_desc_local": "„{title}” zostanie usunięte z tego urządzenia. Tej operacji nie można cofnąć.",
+		"songs_count_one": "1 utwór",
+		"on_this_device": "Na tym urządzeniu",
+		"on_this_device_tooltip": "Zapisane na tym komputerze, a nie na koncie YouTube Music",
+		"local_playlist_subtitle": "Na tym urządzeniu • {count} utworów",
+		"local_playlist_subtitle_one": "Na tym urządzeniu • 1 utwór",
+		"empty_playlist_hint": "Wybierz „Zapisz do playlisty” z menu ⋯ dowolnego utworu, aby dodać go tutaj.",
+		"saved_in": "Zapisane w",
+		"saved_in_one": "Zapisane w {playlist}",
+		"saved_in_many": "Zapisane w {count} playlistach",
+		"saved_in_more": "i {count} więcej"
 	},
 	"local": {
 		"scanning": "Skanowanie folderu...",
@@ -321,7 +354,9 @@
 			"proxy_hint": "Kieruj wszystkie żądania sieciowe przez niestandardowy serwer proxy.",
 			"proxy_placeholder": "http://host:port (puste = brak)",
 			"stream_clients": "Klienci strumieni",
-			"stream_clients_hint": "Wyłącz klienta, aby pominąć go podczas rozwiązywania strumieni. Nadpisywane przez zmienną środowiskową {var}."
+			"stream_clients_hint": "Wyłącz klienta, aby pominąć go podczas rozwiązywania strumieni. Nadpisywane przez zmienną środowiskową {var}.",
+			"language_search": "Szukaj języki",
+			"language_contribute": "Pomóż tłumaczyć Limusic"
 		},
 		"themes": {
 			"interface_font": "Czcionka interfejsu",
@@ -393,15 +428,21 @@
 			"lastfm_primary_artist_hint": "Wysyłaj tylko pierwszego wymienionego wykonawcę do Last.fm, aby odtworzenia trafiły na właściwą stronę wykonawcy. Nazwy połączone znakiem „&” są zachowywane w całości.",
 			"lastfm_primary_strict": "Pomijaj również wykonawców połączonych znakiem „&”",
 			"lastfm_primary_strict_hint": "„Future & Metro Boomin” zostanie zascrobblowane jako „Future”. Duety z „&” w nazwie również zostaną skrócone.",
-			"lyrics_provider": "Zsynchronizowane teksty (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Pobieraj teksty synchronizowane przez społeczność dla aktywnych utworów.",
 			"crossfade": "Crossfade",
 			"crossfade_hint": "Jeden utwór płynnie przechodzi w drugi. Zużywa trochę więcej pamięci, bo w tym momencie grają dwa utwory naraz.",
 			"crossfade_duration": "Czas trwania płynnego przejścia",
 			"crossfade_duration_hint": "Jak długo utwory się nakładają. Krótkie utwory mają krótsze przejścia, więc płynne przejście nigdy nie zaczyna się, zanim poprzedni utwór się nie skończy.",
 			"crossfade_seconds": "{secs}s",
 			"normalize_volume": "Normalizacja głośności",
-			"normalize_volume_hint": "Wyrównaj głośność odtwarzania utworów, żeby cicha produkcja nie ginęła przy następnym nagraniu. Wyłącz, aby usłyszeć każdy utwór dokładnie tak, jak został zmasterowany."
+			"normalize_volume_hint": "Wyrównaj głośność odtwarzania utworów, żeby cicha produkcja nie ginęła przy następnym nagraniu. Wyłącz, aby usłyszeć każdy utwór dokładnie tak, jak został zmasterowany.",
+			"crossfade_lt_paused": "Wstrzymane, gdy jesteś w pokoju Słuchaj razem: nakładanie się dwóch utworów nie może być zsynchronizowane z pozostałymi uczestnikami.",
+			"lyrics_sources": "Źródła tekstów",
+			"lyrics_sources_hint": "Odpytuje od góry do dołu. Zsynchronizowane teksty z dowolnego źródła mają pierwszeństwo przed zwykłym tekstem ze źródła powyżej, a wyłączone źródło nie jest w ogóle odpytywane.",
+			"lyrics_sources_reset": "Przywróć kolejność",
+			"lyrics_move_source": "Przenieś {name}",
+			"lyrics_moved_source": "Przeniesiono „{name}” na pozycję {position} z {total}",
+			"lyrics_use_source": "Użyj {name}",
+			"lyrics_sources_none": "Wszystkie źródła są wyłączone, więc nie zostaną znalezione żadne teksty."
 		},
 		"data": {
 			"clear_cache": "Wyczyść pamięć podręczną obrazów i strumieni",
@@ -432,7 +473,10 @@
 			"report_issue_button": "Zgłoś",
 			"kofi": "Postaw mi kawę",
 			"kofi_hint": "Limusic jest darmowy i taki pozostanie. Ko-fi jest dla tych, którzy chcą się dorzucić.",
-			"kofi_button": "Otwórz Ko-fi"
+			"kofi_button": "Otwórz Ko-fi",
+			"rollback_available": "Ta wersja jest wycofywana do {version} — ostatniego wydania znanego jako stabilne.",
+			"beta": "Wersje beta",
+			"beta_hint": "Otrzymuj nowe wersje kilka dni wcześniej, przed wszystkimi. Są mniej testowane. Wyłączenie tej opcji zachowa Twoją wersję, dopóki nie zostanie zastąpiona przez następne regularne wydanie."
 		},
 		"discord": {
 			"enable": "Rich Presence",
@@ -544,7 +588,8 @@
 			"public_off": "Tylko Ty możesz zobaczyć tę playlistę.",
 			"artwork_note": "Okładka jest stosowana tutaj natychmiast i przesyłana do YouTube Music w tle. Najlepiej sprawdza się kwadratowy JPEG lub PNG.",
 			"pick_artwork": "Wybierz okładkę playlisty",
-			"image_filter": "Obrazy"
+			"image_filter": "Obrazy",
+			"local_artwork_note": "Okładka pozostaje na tym komputerze. Najlepiej sprawdza się kwadratowy JPEG lub PNG."
 		},
 		"share": {
 			"title": "Udostępnij",
@@ -594,19 +639,17 @@
 			"join_tab": "Dołącz",
 			"host_tab": "Gospodarz",
 			"invite_code": "Kod zaproszenia",
-			"invite_placeholder": "Wklej zaproszenie przesłane przez znajomego",
-			"invite_hint": "Zaproszenie zawiera adres serwera; nie trzeba nic więcej konfigurować.",
+			"invite_placeholder": "Wklej kod, który przesłał Ci znajomy",
+			"invite_hint": "Kod zawiera wszystko, co potrzebne; nie trzeba nic więcej konfigurować.",
 			"your_name": "Twoja Nazwa",
 			"your_name_placeholder": "Nazwij się",
-			"join_button": "Dołącz do sesji",
-			"sync_server": "Serwer synchronizacji",
-			"sync_server_placeholder": "wss://twoja-maszyna.ts.net/ws",
-			"sync_server_hint": "Twój własny serwer (np. adres URL Tailscale Funnel). Zapisywany na następny raz.",
-			"start_button": "Rozpocznij sesję",
+			"join_button": "Dołącz do pokoju",
+			"sync_server_placeholder": "wss://twoj-serwer/ws",
+			"sync_server_hint": "Warto zmienić tylko wtedy, gdy hostujesz własny serwer synchronizacji.",
+			"start_button": "Rozpocznij pokój",
 			"hosting": "Hostowanie",
 			"listening": "Słuchanie",
 			"copy_invite": "Kopiuj zaproszenie",
-			"invite_copied": "Zaproszenie skopiowane – wyślij je znajomemu",
 			"invite_copy_failed": "Nie udało się skopiować zaproszenia",
 			"join_requests": "Prośby o dołączenie",
 			"in_room": "W pokoju ({count})",
@@ -623,9 +666,29 @@
 			"status_connected": "Połączony",
 			"status_disconnected": "Rozłączono",
 			"err_enter_name": "Najpierw podaj nazwe",
-			"err_enter_server": "Podaj adres URL serwera synchronizacji",
 			"err_paste_code": "Wklej kod zaproszenia przesłane przez znajomego",
-			"err_paste_full_invite": "Wklej pełne zaproszenie od gospodarza – zawiera ono adres serwera"
+			"subtitle": "Słuchaj tej samej muzyki, w tym samym momencie, z kimkolwiek.",
+			"host_blurb": "Otrzymujesz krótki kod do udostępnienia. Każdy, kto dołączy, słyszy dokładnie to samo, co Ty, w synchronizacji.",
+			"share_hint": "Wyślij to każdemu, z kim chcesz słuchać.",
+			"change_server": "Zmień serwer",
+			"custom_server": "Niestandardowy",
+			"use_default": "Użyj domyślnego",
+			"approve": "Wpuść",
+			"decline": "Odrzuć",
+			"queue_it": "Dodaj do kolejki",
+			"dismiss": "Odrzuć",
+			"alone_hint": "Nikogo jeszcze nie ma. Udostępnij kod powyżej, aby zapełnić pokój.",
+			"copy_code": "Kopiuj kod",
+			"copied": "Skopiowano"
+		},
+		"new_playlist": {
+			"where": "Gdzie to zachować",
+			"account": "YouTube Music",
+			"account_desc": "Na Twoim koncie — gdziekolwiek się zalogujesz",
+			"device": "To urządzenie",
+			"device_desc": "Konto nie jest potrzebne — dane zostają na tym komputerze",
+			"device_only": "Zostaje na tym komputerze, konto nie jest potrzebne. Zaloguj się, aby zamiast tego tworzyć playlisty w YouTube Music.",
+			"local_files": "Utwory z Twojego komputera mogą trafić tylko do playlisty na tym urządzeniu."
 		}
 	},
 	"integrations": {
@@ -687,7 +750,53 @@
 	"lyrics": {
 		"title": "Tekst",
 		"instrumental": "Instrumentalny",
-		"none_found": "Nie znaleziono tekstu dla tego utworu."
+		"none_found": "Nie znaleziono tekstu dla tego utworu.",
+		"source": "Teksty z {source}",
+		"romanize": "Zlatynizowane",
+		"romanize_hint": "Pokaż wymowę każdego wersu łacińskimi literami",
+		"find": "Znajdź tekst",
+		"none_found_hint": "Spróbuj innego źródła albo poszukaj pod innym tytułem.",
+		"sources_title": "Źródło tekstów",
+		"sources_hint": "Tylko dla tego utworu. Domyślna kolejność jest w Ustawieniach.",
+		"open_settings": "Ustawienia tekstów",
+		"automatic": "Automatycznie",
+		"automatic_hint": "Pierwsze dopasowanie w Twojej kolejności",
+		"automatic_showing": "Wyświetlanie: {source}",
+		"kind_words": "Słowo po słowie",
+		"kind_synced": "Zsynchronizowane",
+		"kind_plain": "Zwykły tekst",
+		"unreachable": "Nieosiągalne",
+		"retry": "Spróbuj ponownie",
+		"check": "Sprawdź",
+		"off": "Wyłączone",
+		"off_hint": "Wyłączone w Ustawieniach. Mimo to sprawdzić je dla tego utworu?",
+		"translated": "Zawiera tłumaczenie",
+		"chosen": "Wybrane dla tego utworu",
+		"timing": "Synchronizacja",
+		"timing_hint": "Tekst wyprzedza wokalistę? Przesuń go później.",
+		"timing_value": "{value} s",
+		"timing_earlier": "Pokaż tekst wcześniej",
+		"timing_later": "Pokaż tekst później",
+		"timing_reset": "Przywróć synchronizację",
+		"search_open": "Zły utwór? Poszukaj po tytule",
+		"search_title": "Tytuł",
+		"search_artist": "Wykonawca",
+		"search_go": "Szukaj",
+		"search_reset": "Wróć do tego utworu",
+		"search_results": "Wyniki dla {query}",
+		"translation": "Tłumaczenie",
+		"translation_hint": "Pokaż tłumaczenie, które niektóre źródła dodają pod każdym wersem",
+		"about": {
+			"boidu": "Baza Better Lyrics. Słowo po słowie, dla utworów, które ktoś już wcześniej wyszukał.",
+			"lyricsplus": "Teksty z Apple Music, słowo po słowie, z własną latynizacją Apple.",
+			"lrclib": "Otwarta biblioteka tekstów zsynchronizowanych. Najszersze pokrycie.",
+			"youtube": "Własne teksty YouTube Music, tam gdzie są licencjonowane.",
+			"simpmusic": "Teksty od społeczności dopasowane do dokładnie tego przesłanego filmu na YouTube, razem z wstępami.",
+			"netease": "Duży chiński katalog. Dodaje chińskie tłumaczenia pod wieloma utworami.",
+			"qq": "Chiński katalog, mocny w Mandopopie i Cantopopie.",
+			"kugou": "Chiński katalog, dla rzadszych utworów."
+		},
+		"not_found": "Nie znaleziono"
 	},
 	"queue": {
 		"title": "Kolejka"
@@ -773,5 +882,11 @@
 		"offline_title": "Brak połączenia",
 		"offline_body": "Limusic nie może połączyć się z YouTube Music. Sprawdź połączenie internetowe i spróbuj ponownie.",
 		"generic_title": "Coś poszło nie tak"
+	},
+	"search": {
+		"recent": "Ostatnie wyszukiwania",
+		"clear_recent": "Wyczyść",
+		"forget": "Usuń „{query}” z ostatnich wyszukiwań",
+		"filters": "Typy wyników"
 	}
 }

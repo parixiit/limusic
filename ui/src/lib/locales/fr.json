@@ -60,7 +60,7 @@
 		"filter_library": "Filtrer votre bibliothèque…",
 		"command_description": "Rechercher des musiques, albums, artistes et playlists",
 		"shuffle_all": "Mélanger tout",
-		"play_all": "Lancer tout",
+		"play_all": "Lire tout",
 		"top_result": "Meilleur résultat",
 		"all_results_for": "Tous les résultats pour \"{query}\"",
 		"refresh": "Actualiser",
@@ -90,7 +90,7 @@
 		"no_channels": "YouTube n'a renvoyé aucune chaîne sélectionnable."
 	},
 	"player": {
-		"play": "Lancer",
+		"play": "Lire",
 		"pause": "Pause",
 		"next": "Prochain",
 		"previous": "Précédent",
@@ -105,7 +105,7 @@
 		"lyrics": "Paroles",
 		"mini_player": "Petit lecteur",
 		"theater_mode": "Mode Théatre",
-		"playing_from": "Lancer depuis",
+		"playing_from": "Lire depuis",
 		"exit_theater": "Sortir du mode Théatre",
 		"now_playing": "Écoute actuellement",
 		"autoplay_notice": "Lecture automatique activée",
@@ -142,7 +142,8 @@
 		"pin_to_top": "Épingler en haut",
 		"unpin": "Désépingler",
 		"block_artist": "Bloquer l'artiste",
-		"remove_from_this_playlist": "Retirer de cette playlist"
+		"remove_from_this_playlist": "Retirer de cette playlist",
+		"back_to": "Retour à {title}"
 	},
 	"home": {
 		"good_morning": "Bonne matinée",
@@ -158,10 +159,31 @@
 		"shortcuts_desc": "Tout ce que vous utilisez le plus, accessible en un clic depuis l’accueil. Faites glisser une carte ici, ou choisissez-en une dans votre bibliothèque.",
 		"jump_back_in": "Reprendre l’écoute",
 		"show_section": "Afficher {title} sur l'accueil",
-		"hide_section": "Cacher {title} de l'accueil",
 		"feed_empty": "Votre fil d’accueil est vide pour le moment.",
 		"signed_out_hint": "Se connecter et l'accueil se remplira avec vos mix et playlists construits avec vos écoutes.",
-		"add_to_end": "Ajouter à la fin"
+		"add_to_end": "Ajouter à la fin",
+		"edit_home_desc": "Les modifications s'affichent sur la page au fur et à mesure que vous les effectuez.",
+		"look": "Jette un œil",
+		"card_size": "Dimensions de la carte",
+		"card_size_desc": "La place qu'occupent les albums, les playlists et les artistes dans les rayons.",
+		"card_small": "Petit",
+		"card_medium": "Moyen",
+		"card_large": "Grand",
+		"mood_chips": "Filtres d'ambiance",
+		"mood_chips_desc": "La rangée de filtres située au-dessus du flux qui le limite à une ambiance ou à un genre.",
+		"artwork_backdrop": "L'illustration de fond qui accompagne le message de bienvenue",
+		"artwork_backdrop_desc": "Personnalisez l'en-tête avec la pochette du titre en cours de lecture.",
+		"sections": "Sections",
+		"sections_shown": "{shown} sur {total} affichés",
+		"turn_all_off": "Tout désactiver",
+		"turn_all_on": "Tout activer",
+		"sections_hint": "Faites glisser une section pour la déplacer, ou sélectionnez sa poignée et utilisez les touches fléchées. Les sections masquées restent à leur place.",
+		"move_section": "Déplacer {title}",
+		"moved_section": "{title} est passé à la position {position} sur {total}",
+		"new_section": "Nouveau",
+		"show_new": "Afficher les nouvelles sections",
+		"show_new_desc": "Au fil du temps, YouTube ajoute et renomme des sections. Lorsqu'elles sont désactivées, elles apparaissent masquées et restent ici jusqu'à ce que vous les activiez.",
+		"all_hidden": "Tout ce qui se trouve sur la page d'accueil est désactivé."
 	},
 	"artist": {
 		"subscribe": "S'abonner",
@@ -187,7 +209,6 @@
 		"empty_album": "Cet album est vide.",
 		"play_count": "{count} écoutés",
 		"added_by": "Ajouté par {user}",
-		"no_playlists_create": "Aucune playlist pour le moment, créez en une dans votre Bibliothèque.",
 		"search_playlists": "Rechercher vos playlists…",
 		"no_playlists_hint": "Aucune playlist pour le moment. Sauvegardez en une depuis sa page ou créez en une depuis votre Bibliothèque.",
 		"empty_playlist": "Cette playlist est vide.",
@@ -311,7 +332,7 @@
 			"roundness_hint": "Arrondi des coins des cartes, boutons et illustrations.",
 			"load_font_file_hint": "Chargez un fichier .ttf, .otf ou .woff depuis votre ordinateur. Il sera ajouté aux deux listes déroulantes ci-dessus.",
 			"open_player": "Ouvrez le lecteur lorsque vous appuyez sur lecture",
-			"open_player_hint": "Quand activer, lancer un morceau, un album ou une playlist ouvre le lecteur en plein écran. Quand désactiver, la lecture démarre sans quitter la page actuelle.",
+			"open_player_hint": "Quand activer, lire un titre, un album ou une playlist ouvre le lecteur en plein écran. Quand désactiver, la lecture démarre sans quitter la page actuelle.",
 			"tabbed_player": "File d’attente et paroles dans le lecteur",
 			"tabbed_player_hint": "Quand activer, la file d’attente et les paroles apparaissent sous forme d’onglets dans le lecteur, et les deux boutons de la barre permettent de passer de l’un à l’autre. Quand désactiver, ces boutons ouvrent uniquement les panneaux latéraux, qui restent affichés par-dessus le lecteur afin de voir les deux en même temps.",
 			"artwork_background": "Illustraction d'arrière plan",
@@ -351,8 +372,6 @@
 			"music_videos_hint": "Afficher le flux vidéo lorsqu’il est disponible au lieu de l’audio uniquement.",
 			"hide_videos": "Masquer les vidéos dans les résultats de recherche",
 			"hide_videos_hint": "Afficher uniquement les titres audio et les sorties officielles dans les résultats de recherche.",
-			"lyrics_provider": "Paroles synchronisées (Boidu/LRCLIB)",
-			"lyrics_provider_hint": "Récupérer les paroles synchronisées par la communauté pour les titres en cours de lecture.",
 			"blocked_artists": "Artistes bloqués",
 			"blocked_artists_hint": "Les artistes bloqués ne sont pas diffusés à la radio, en lecture automatique ni dans les suggestions. Les playlists et les albums que vous ouvrez continuent quant à eux de lire tous les titres qu'ils contiennent.",
 			"blocked_artists_empty": "Personne n'a encore été bloqué. Utilisez l'option « Bloquer l'artiste » dans le menu ⋯ d'un morceau.",
@@ -568,14 +587,12 @@
 			"your_name": "Votre nom",
 			"your_name_placeholder": "Votre nom",
 			"join_button": "Rejoindre la session",
-			"sync_server": "Serveur de synchronisation",
 			"sync_server_placeholder": "wss://votre-machine.ts.net/ws",
 			"sync_server_hint": "Votre serveur auto-hébergé (par ex. l’URL Tailscale Funnel). Enregistré pour la prochaine fois.",
 			"start_button": "Démarrer une session",
 			"hosting": "Hébergement",
 			"listening": "Écoute",
 			"copy_invite": "Copier l’invitation",
-			"invite_copied": "Invitation copiée, envoyez-la à un ami",
 			"invite_copy_failed": "Impossible de copier l’invitation",
 			"join_requests": "Demandes pour rejoindre",
 			"in_room": "Dans la session ({count})",
@@ -592,9 +609,7 @@
 			"status_connected": "Connecté",
 			"status_disconnected": "Déconnecté",
 			"err_enter_name": "Saisissez d’abord un nom",
-			"err_enter_server": "Saisissez l’URL de votre serveur de synchronisation",
-			"err_paste_code": "Collez le code d’invitation envoyé par votre ami",
-			"err_paste_full_invite": "Collez l’invitation complète de l’hôte, elle contient l’adresse du serveur"
+			"err_paste_code": "Collez le code d’invitation envoyé par votre ami"
 		}
 	},
 	"integrations": {
@@ -682,7 +697,7 @@
 		"load_failed": "Impossible de charger le journal des modifications ({error})."
 	},
 	"toasts": {
-		"could_not_play": "Impossible de lancer la lecture — essayez de l’ouvrir à la place",
+		"could_not_play": "Impossible de lire le titre, essayez de l’ouvrir à la place",
 		"could_not_queue": "Impossible de l’ajouter à la file d’attente — essayez de l’ouvrir à la place",
 		"could_not_load_playlist": "Impossible de charger cette playlist — essayez de l’ouvrir à la place",
 		"could_not_load_more": "Impossible de charger plus de contenu",
@@ -773,5 +788,11 @@
 		"offline_title": "Pas de connexion",
 		"offline_body": "Limusic ne parvient pas à se connecter à YouTube Music. Vérifiez votre connexion Internet, puis réessayez.",
 		"generic_title": "Une erreur s'est produite"
+	},
+	"search": {
+		"recent": "Recherches récentes",
+		"clear_recent": "Effacer",
+		"forget": "Supprimer \"{query}\" des recherches récentes",
+		"filters": "Types de résultats"
 	}
 }

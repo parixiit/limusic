@@ -1,13 +1,18 @@
 <script lang="ts">
-	// The search field plus its typeahead preview: type, wait 500ms, get a handful of real results
-	// under the input. Runs the same `search_all` the search page runs and writes the same page-cache
-	// key, so submitting a previewed query paints from cache instead of searching twice.
+	// The search field plus its typeahead: type, wait 300ms, get YouTube's own suggestions under the
+	// input, a few matching songs / artists / albums and then query completions. Same request and
+	// same rows as the Ctrl+K palette (CommandPalette).
 	//
 	// Must live inside a <form>: Enter with nothing highlighted, and the "All results" row, fall
 	// through to that form's onsubmit, which is where each caller decides what a full search means
 	// (run it in place, or navigate to /search).
 	import { HugeiconsIcon } from '@hugeicons/svelte';
-	import { Search01Icon, MusicNote01Icon, UserIcon } from '@hugeicons/core-free-icons';
+	import {
+		Search01Icon,
+		HistoryIcon,
+		MusicNote01Icon,
+		UserIcon
+	} from '@hugeicons/core-free-icons';
 	import { Input } from '$lib/components/ui/input';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import ExplicitIcon from './ExplicitIcon.svelte';
@@ -35,31 +40,28 @@
 
 	let open = $state(false);
 	let items = $state<BrowseItem[]>([]);
+	let queries = $state<SearchSuggestions['queries']>([]);
 	let loading = $state(false);
-	let active = $state(-1); // arrow-key row, -1 = none (Enter submits the form); the mouse never sets it
+	// Arrow-key row, items first and then queries. -1 = none, so Enter submits the form. The mouse
+	// never sets it.
+	let active = $state(-1);
 	let loadedFor = ''; // query `items` belongs to, so a stale response can't land
 	// The row the right-click menu belongs to: whatever the pointer last entered. It lives outside
 	// the panel and outlives it, because taking a menu action moves focus and closes the panel, and
 	// a menu unmounted mid-click is a menu that does nothing.
 	let ctxItem = $state<BrowseItem | null>(null);
 	let debounce: ReturnType<typeof setTimeout> | undefined;
-
-	const KIND: Record<string, string> = $derived({
-		song: t('common.song_singular'),
-		album: t('common.album_singular'),
-		artist: t('common.artist_singular'),
-		playlist: t('common.playlist_singular')
-	});
+	let root: HTMLDivElement;
 
 	async function load(q: string) {
 		loadedFor = q;
 		active = -1;
 		loading = true;
 		try {
-			const next = await searchPreview(q);
-			if (loadedFor === q) items = next;
+			const next = await searchSuggestions(q);
+			if (loadedFor === q) ({ items, queries } = next);
 		} catch {
-			if (loadedFor === q) items = [];
+			if (loadedFor === q) [items, queries] = [[], []];
 		} finally {
 			if (loadedFor === q) loading = false;
 		}
@@ -78,10 +80,10 @@
 		if (q !== loadedFor) {
 			// Loading starts now, not when the timer fires: otherwise the empty panel reads as
 			// "no results" for the whole debounce, on every query.
-			items = [];
+			[items, queries] = [[], []];
 			loading = true;
 		}
-		debounce = setTimeout(() => load(q), 500);
+		debounce = setTimeout(() => load(q), 300);
 	}
 
 	// Deliberately no reopen-on-focus: rows preventDefault on mousedown, so the input keeps focus
@@ -100,22 +102,31 @@
 		onpick?.();
 	}
 
+	// A completion runs as if it had been typed: it becomes the field's text and submits the form, so
+	// each caller's own idea of a full search applies, the same as the "All results" row.
+	function search(text: string) {
+		value = text;
+		close();
+		root.closest('form')?.requestSubmit();
+	}
+
 	function onKeydown(e: KeyboardEvent) {
 		if (e.key === 'Escape' && open) {
 			e.preventDefault();
 			close();
 		} else if (e.key === 'Enter') {
 			// Only a highlighted row is ours; a bare Enter is the caller's form submit.
-			if (active >= 0 && items[active]) {
+			if (active >= 0 && active < items.length + queries.length) {
 				e.preventDefault();
-				choose(items[active]);
+				if (active < items.length) choose(items[active]);
+				else search(queries[active - items.length].text);
 			} else {
 				close();
 			}
-		} else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && items.length) {
+		} else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && items.length + queries.length) {
 			e.preventDefault();
 			open = true;
-			const n = items.length;
+			const n = items.length + queries.length;
 			active = e.key === 'ArrowDown' ? (active + 1) % n : (active <= 0 ? n : active) - 1;
 		}
 	}
@@ -126,6 +137,7 @@
 <!-- data-ctx: right-clicking a row opens that item's menu at the pointer (see `ctxHost`). The host
      is this whole block, but the input inside it keeps WebKit's own menu (`wantsNative`). -->
 <div
+	bind:this={root}
 	class="relative w-full min-w-0"
 	data-ctx
 	onfocusout={(e) => {
@@ -150,7 +162,7 @@
 			aria-label={t('a11y.search_preview')}
 			class="absolute top-full z-50 mt-2 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95 duration-150 {panelClass}"
 		>
-			{#if loading && !items.length}
+			{#if loading && !items.length && !queries.length}
 				{#each Array(4) as _, i (i)}
 					<div class="flex items-center gap-3 px-3 py-2">
 						<Skeleton class="h-10 w-10 shrink-0 rounded-md" />
@@ -160,11 +172,10 @@
 						</div>
 					</div>
 				{/each}
-			{:else if !items.length}
+			{:else if !items.length && !queries.length}
 				<div class="px-4 py-3 text-sm text-muted-foreground">{t('common.nothing_quick')}</div>
 			{:else}
 				{#each items as item, i (item.id)}
-					{@const hero = i === 0}
 					<!-- A div, not a button: `ctxHost` treats a nested <button> as its own thing and would
 					     leave every row without a right-click menu. -->
 					<!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -176,7 +187,7 @@
 						class="flex w-full cursor-pointer items-center gap-3 px-3 text-left transition-colors {i ===
 						active
 							? 'bg-accent/60'
-							: 'hover:bg-accent/40'} {hero ? 'border-b py-2.5' : 'py-1.5'}"
+							: 'hover:bg-accent/40'} py-1.5"
 						onmousedown={(e) => e.preventDefault()}
 						onmouseenter={() => {
 							// The pointer takes over from the arrow keys but never arms Enter: hovering a row
@@ -193,16 +204,16 @@
 							<img
 								src={thumb(item.thumbnail, 400)}
 								alt=""
-								class="shrink-0 object-cover {item.kind === 'artist'
+								class="h-10 w-10 shrink-0 object-cover {item.kind === 'artist'
 									? 'rounded-full'
-									: 'rounded-md'} {hero ? 'h-12 w-12' : 'h-10 w-10'}"
+									: 'rounded-md'}"
 							/>
 						{:else}
 							<div
-								class="flex shrink-0 items-center justify-center bg-muted text-muted-foreground/50 {item.kind ===
+								class="flex h-10 w-10 shrink-0 items-center justify-center bg-muted text-muted-foreground/50 {item.kind ===
 								'artist'
 									? 'rounded-full'
-									: 'rounded-md'} {hero ? 'h-12 w-12' : 'h-10 w-10'}"
+									: 'rounded-md'}"
 							>
 								<HugeiconsIcon
 									icon={item.kind === 'artist' ? UserIcon : MusicNote01Icon}
@@ -211,24 +222,42 @@
 							</div>
 						{/if}
 						<div class="min-w-0 flex-1">
-							<div class="truncate {hero ? 'font-semibold' : 'text-sm'}">{item.title}</div>
+							<div class="truncate text-sm">{item.title}</div>
 							<div class="flex items-center gap-1 text-xs text-muted-foreground">
 								{#if item.explicit}
 									<ExplicitIcon class="h-3 w-3 shrink-0" />
 								{/if}
-								<span class="truncate">
-									{KIND[item.kind]}{item.subtitle ? ` • ${item.subtitle}` : ''}
-								</span>
+								<span class="truncate">{rowMeta(item)}</span>
 							</div>
 						</div>
-						{#if hero}
-							<span
-								class="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-primary"
-							>
-								{t('common.top_result')}
-							</span>
-						{/if}
 					</div>
+				{/each}
+				{#each queries as q, i (q.text)}
+					{@const row = items.length + i}
+					<!-- A button, unlike the rows above: `ctxHost` leaves buttons alone, so right-clicking a
+					     completion doesn't open the last hovered item's menu. -->
+					<button
+						type="button"
+						role="option"
+						tabindex="-1"
+						aria-selected={row === active}
+						class="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left text-sm transition-colors {row ===
+						active
+							? 'bg-accent/60'
+							: 'hover:bg-accent/40'} {i === 0 && items.length ? 'border-t' : ''}"
+						onmousedown={(e) => e.preventDefault()}
+						onmouseenter={() => (active = -1)}
+						onclick={() => search(q.text)}
+					>
+						<!-- altIcon/showAlt, not a ternary: HugeiconsIcon freezes `icon` at mount. -->
+						<HugeiconsIcon
+							icon={Search01Icon}
+							altIcon={HistoryIcon}
+							showAlt={q.history}
+							class="h-4 w-4 shrink-0 text-muted-foreground"
+						/>
+						<span class="truncate">{q.text}</span>
+					</button>
 				{/each}
 			{/if}
 			<!-- Submits the enclosing form, which is where each caller decides what "all results" does.

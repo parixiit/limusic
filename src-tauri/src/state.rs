@@ -658,43 +658,37 @@ impl AppState {
             return Ok(SignInOutcome::Complete);
         }
 
-        // A missing/unreadable list must not replace a previously selected channel with Google's
-        // current default. Revalidate the stored server-issued id directly; account_menu either
-        // confirms it and refreshes metadata, or the login fails closed.
-        //
-        // Only when the list is empty. A list that came back and does *not* contain the persisted
-        // id means these cookies belong to a different Google account, so the stored id is theirs
-        // to drop: forcing it here would delegate account A's channel onto account B's cookie and
-        // fail every sign-in until the user signs out first.
-        if identities.is_empty() {
-            if let Some(data_sync_id) = persisted_id.as_deref() {
-                let identity = persisted_identity
-                    .as_ref()
-                    .and_then(SelectedIdentity::as_account_identity)
-                    .unwrap_or_else(|| AccountIdentity {
-                        name: String::new(),
-                        handle: None,
-                        email: None,
-                        thumbnail: None,
-                        channel_id: None,
-                        data_sync_id: data_sync_id.to_owned(),
-                        is_selected: false,
-                    });
-                self.activate_identity(
-                    &identity,
-                    persisted_identity.as_ref().is_some_and(|saved| saved.has_multiple_identities),
-                    client,
-                )
-                .await
-                .inspect_err(|_| {
-                    self.restore_auth_transport(
-                        previous_cookie.clone(),
-                        previous_data_sync_id.clone(),
-                    );
-                    self.restore_session_cookie_setting(previous_cookie.as_deref());
-                })?;
-                return Ok(SignInOutcome::Complete);
-            }
+        // A missing/unreadable list (or a list that mysteriously omitted our saved channel) must not
+        // replace a previously selected channel with Google's current default. Revalidate the stored
+        // server-issued id directly; account_menu either confirms it and refreshes metadata, or the
+        // login fails closed.
+        if let Some(data_sync_id) = persisted_id.as_deref() {
+            let identity = persisted_identity
+                .as_ref()
+                .and_then(SelectedIdentity::as_account_identity)
+                .unwrap_or_else(|| AccountIdentity {
+                    name: String::new(),
+                    handle: None,
+                    email: None,
+                    thumbnail: None,
+                    channel_id: None,
+                    data_sync_id: data_sync_id.to_owned(),
+                    is_selected: false,
+                });
+            self.activate_identity(
+                &identity,
+                persisted_identity.as_ref().is_some_and(|saved| saved.has_multiple_identities),
+                client,
+            )
+            .await
+            .inspect_err(|_| {
+                self.restore_auth_transport(
+                    previous_cookie.clone(),
+                    previous_data_sync_id.clone(),
+                );
+                self.restore_session_cookie_setting(previous_cookie.as_deref());
+            })?;
+            return Ok(SignInOutcome::Complete);
         }
 
         if identities.len() == 1 {
@@ -1117,6 +1111,16 @@ impl AppState {
                 ResolveError::LocalMissing(path.to_owned())
             });
         }
+        // If track is downloaded for offline, play directly from disk at 0ms latency.
+        if let Ok(path) = crate::download::offline_track_path(&self.app, video_id) {
+            if path.is_file() {
+                let path_str = path.to_string_lossy().to_string();
+                if let Ok(mut data) = crate::local::playback_data(video_id, &path_str) {
+                    data.stream_client = "offline".to_string();
+                    return Ok(data);
+                }
+            }
+        }
         // Latency cache first (context/11) — honor expiry, never a source of truth.
         //
         // The URL has to outlive the *track*, not just the load. googlevideo keeps serving a
@@ -1191,6 +1195,13 @@ impl AppState {
             );
         }
         Ok(data)
+    }
+
+    /// Resolve an audio stream for downloading/exporting.
+    pub async fn resolve_for_download(&self, video_id: &str, prefer_codec: Option<&str>) -> Result<crate::orchestrator::PlaybackData, crate::orchestrator::ResolveError> {
+        self.orchestrator
+            .resolve_with_codec(video_id, false, self.quality(), &self.disabled_clients(), prefer_codec)
+            .await
     }
 
     /// Start a fresh queue from one track (a search-result click), then hydrate the radio via
@@ -2011,13 +2022,39 @@ impl AppState {
             .filter(|(vid, _)| *vid == item.video_id)
             .map(|(_, pos)| pos);
         let stream_url = mpv_stream_url(&data);
-        if let Err(e) =
-            self.player.load(&stream_url, &data.headers, self.track_gain(data.loudness_db), seek)
-        {
+        let gain = self.track_gain(data.loudness_db);
+        // When crossfade is on and there's no restore position, keep the active deck playing while
+        // the new track buffers on the idle deck, then instant-crossfade. This eliminates the
+        // silent gap between manual skips.
+        let skip_crossfade = seek.is_none() && self.player.is_crossfade_enabled();
+        if let Err(e) = self.player.load_crossfade_skip(&stream_url, &data.headers, gain, seek) {
             self.emit_error(&item.video_id, &e.to_string());
             return false;
         }
-        let _ = self.player.play();
+        if skip_crossfade {
+            // Poll asynchronously until the idle deck has the file open (FileLoaded event fired).
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            loop {
+                if self.generation.load(Ordering::SeqCst) != gen {
+                    return false; // user skipped again while we waited
+                }
+                if self.player.is_preloaded() {
+                    self.player.finish_crossfade_skip(gain);
+                    break;
+                }
+                if self.player.preload_cancelled() || std::time::Instant::now() > deadline {
+                    // The preload was evicted (another skip) or timed out — hard-load fallback.
+                    tracing::warn!("crossfade-skip: preload cancelled or timed out, hard-loading");
+                    if let Err(e) = self.player.load(&stream_url, &data.headers, gain, None) {
+                        self.emit_error(&item.video_id, &e.to_string());
+                        return false;
+                    }
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+            }
+        }
+
         // Items played from cards/radio can arrive without a duration; the player response knows
         // the exact length of the cut we stream. Backfill before emitting — lyrics matching keys
         // on it (a wrong-cut LRCLIB match plays lyrics seconds off the audio).
@@ -2332,6 +2369,12 @@ impl AppState {
         }
         if let Some(d) = &self.discord {
             d.set_track(item);
+        }
+        // A restored queue is paused at launch: nothing started, so nothing to announce.
+        if stream_client != "restored"
+            && self.db.get_setting("track_notifications").as_deref() == Some("true")
+        {
+            crate::notify::track_changed(&self.app, &item.title, &item.artists);
         }
         // Read per track rather than cached: one settings row on a track change, and the switch
         // then applies to what is already playing.
@@ -3032,8 +3075,8 @@ impl AppState {
             SyncCommand::ChangeTrack { track, position_ms, playing, queue } => {
                 self.lt_apply_change_track(track, position_ms, playing, queue).await
             }
-            SyncCommand::Play { position_ms, server_time_ms } => {
-                self.lt_apply_play(position_ms, server_time_ms).await
+            SyncCommand::Play { position_ms } => {
+                self.lt_apply_play(position_ms).await
             }
             SyncCommand::Pause { position_ms } => self.lt_apply_pause(position_ms).await,
             SyncCommand::Seek { position_ms } => {
@@ -3155,15 +3198,10 @@ impl AppState {
     }
 
     /// Guest: apply a play, offsetting the target position by transit latency (context/19 §6.5).
-    async fn lt_apply_play(&self, position_ms: i64, server_time_ms: i64) {
-        let target = if server_time_ms > 0 {
-            position_ms + (now_ms() - server_time_ms).max(0)
-        } else {
-            position_ms
-        };
+    async fn lt_apply_play(&self, position_ms: i64) {
         let cur_ms = (self.current_position() * 1000.0) as i64;
-        if (cur_ms - target).abs() > 2000 {
-            let _ = self.player.seek(target as f64 / 1000.0);
+        if (cur_ms - position_ms).abs() > 2000 {
+            let _ = self.player.seek(position_ms as f64 / 1000.0);
         }
         let _ = self.player.play();
     }
@@ -3720,6 +3758,7 @@ impl AppState {
 }
 
 /// Current wall-clock in ms (for guest latency compensation).
+#[allow(dead_code)]
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -3770,16 +3809,26 @@ fn track_to_song(t: &Track) -> SongItem {
     }
 }
 
-/// Where an "Add to queue" lands: at the back of the manual block, so it plays after everything
-/// already queued by hand and before the playing context, its radio, and autoplay's filler. The
-/// tail of a playlist is not where "add to queue" belongs — a radio has no end at all, so a track
-/// queued behind one is never heard, and a 50-track playlist buries it just as effectively.
+/// Where an "Add to queue" lands:
+/// - If the queue is an endless radio (`q.radio == true`), it lands right after the manual
+///   block / current track so it isn't buried behind endless algorithmic tracks.
+/// - If playing an album or playlist context, it lands after the current album/playlist
+///   context tracks (and any prior queued tracks), but before any trailing `autoplay` filler.
 fn enqueue_at(q: &QueueState) -> usize {
-    let mut at = (q.current + 1).min(q.items.len());
-    while q.items.get(at).map(|i| i.queued || i.queued_end).unwrap_or(false) {
-        at += 1;
+    if q.radio {
+        let mut at = (q.current + 1).min(q.items.len());
+        while q.items.get(at).map(|i| i.queued || i.queued_end).unwrap_or(false) {
+            at += 1;
+        }
+        at
+    } else {
+        // Find where trailing autoplay tracks start, if any; otherwise append to end of queue.
+        let mut at = (q.current + 1).min(q.items.len());
+        while at < q.items.len() && !q.items[at].autoplay {
+            at += 1;
+        }
+        at
     }
-    at
 }
 
 /// Drop every copy of `ids` already in the queue, so a manual add moves the track instead of
@@ -4765,30 +4814,39 @@ mod tests {
         assert_eq!(items.len(), 2);
     }
 
-    // "Add to queue" lands at the back of the manual block, ahead of the context — the bug in #26
-    // was it landing at the very end, where a radio or a long playlist buries it forever.
+    // "Add to queue" lands after the current playlist/album context (before autoplay filler),
+    // and for an endless radio it lands right after the manual block (so it isn't buried).
     #[test]
-    fn add_to_queue_goes_behind_the_manual_block_but_ahead_of_the_context() {
+    fn add_to_queue_lands_after_playlist_context_and_ahead_of_autoplay_or_radio() {
         let queued = |id: &str| innertube::SongItem { queued: true, ..song(id, None) };
         let added = |id: &str| innertube::SongItem { queued_end: true, ..song(id, None) };
+        let auto = |id: &str| innertube::SongItem { autoplay: true, ..song(id, None) };
 
-        // Plain playlist queue → straight behind the playing track.
+        // Plain playlist queue → appends after the playlist tracks.
         let q = QueueState {
             items: vec![song("a", None), song("b", None), song("c", None)],
             current: 0,
             ..QueueState::default()
         };
-        assert_eq!(enqueue_at(&q), 1);
+        assert_eq!(enqueue_at(&q), 3);
 
-        // Behind a waiting "Play next" block and behind earlier adds, never inside either.
+        // Playlist with trailing autoplay filler → inserts before autoplay filler.
         let q = QueueState {
-            items: vec![song("a", None), queued("mine"), added("x1"), song("b", None)],
+            items: vec![song("a", None), song("b", None), auto("r1"), auto("r2")],
             current: 0,
             ..QueueState::default()
         };
-        assert_eq!(enqueue_at(&q), 3);
+        assert_eq!(enqueue_at(&q), 2);
 
-        // A radio is no different: the add is heard next instead of after an endless feed.
+        // Behind a waiting "Play next" block, playlist context, and prior adds.
+        let q = QueueState {
+            items: vec![song("a", None), queued("mine"), song("b", None), added("x1"), auto("r1")],
+            current: 0,
+            ..QueueState::default()
+        };
+        assert_eq!(enqueue_at(&q), 4);
+
+        // A radio lands right after current / manual adds so the add is heard next instead of after an endless feed.
         let q = QueueState {
             items: vec![song("r1", None), song("r2", None), song("r3", None)],
             current: 0,
@@ -4796,6 +4854,15 @@ mod tests {
             ..QueueState::default()
         };
         assert_eq!(enqueue_at(&q), 1);
+
+        // Radio with existing manual adds → after existing manual adds.
+        let q = QueueState {
+            items: vec![song("r1", None), queued("mine"), added("x1"), song("r2", None)],
+            current: 0,
+            radio: true,
+            ..QueueState::default()
+        };
+        assert_eq!(enqueue_at(&q), 3);
 
         // Nothing after the playing track: appended, not out of bounds.
         let q = QueueState { items: vec![song("a", None)], current: 0, ..QueueState::default() };
@@ -5080,4 +5147,157 @@ mod tests {
         q.keep_context(0.0);
         assert!(q.prev_context.is_none());
     }
+    /// Push the volume to MPRIS (#220). Called after every change, wherever it came from.
+    pub fn media_set_volume(&self, volume: i64) {
+        if let Some(m) = &self.media {
+            m.set_volume(volume);
+        }
+    }
+    /// [`Self::attach_video`] for the track already playing, when music videos were just turned on.
+    pub async fn attach_current_video(self: &Arc<Self>) {
+        if let (Some(item), Some(path)) = (self.current_item().await, self.player.current_path()) {
+            self.attach_video(&item.video_id, item.is_video, &path);
+        }
+    }
+    /// than when the next track starts and notices.
+    pub async fn autoplay_changed(self: &std::sync::Arc<Self>, on: bool) {
+        if on {
+            let gen = self.generation.load(Ordering::SeqCst);
+            self.extend_queue_radio(gen).await;
+        } else {
+            self.drop_upcoming(|item| item.autoplay).await;
+        }
+    }
+    /// dead URL until it next plays, fails again, and is handled then.
+    pub async fn on_video_failed(self: &Arc<Self>, audio: &str) {
+        if self.player.current_path().as_deref() != Some(audio) {
+            tracing::debug!("video: a failed picture for a track no longer playing, ignored");
+            return;
+        }
+        let Some(item) = self.current_item().await else { return };
+        self.forget_video_url(&item.video_id);
+        if self.orchestrator.mark_video_failed(&item.video_id) {
+            self.attach_current_video().await;
+        }
+    }
+}
+
+pub fn native_video() -> bool {
+    #[cfg(any(target_os = "linux", windows))]
+    return crate::nativevideo::available();
+    #[cfg(not(any(target_os = "linux", windows)))]
+    false
+}
+
+
+impl AppState {
+    /// Push the volume to MPRIS (#220). Called after every change, wherever it came from.
+    pub fn media_set_volume(&self, volume: i64) {
+        if let Some(m) = &self.media {
+            m.set_volume(volume);
+        }
+    }
+    /// [`Self::attach_video`] for the track already playing, when music videos were just turned on.
+    pub async fn attach_current_video(self: &Arc<Self>) {
+        if let (Some(item), Some(path)) = (self.current_item().await, self.player.current_path()) {
+            self.attach_video(&item.video_id, item.is_video, &path);
+        }
+    }
+    /// than when the next track starts and notices.
+    pub async fn autoplay_changed(self: &std::sync::Arc<Self>, on: bool) {
+        if on {
+            let gen = self.generation.load(Ordering::SeqCst);
+            self.extend_queue_radio(gen).await;
+        } else {
+            self.drop_upcoming(|item| item.autoplay).await;
+        }
+    }
+    /// dead URL until it next plays, fails again, and is handled then.
+    pub async fn on_video_failed(self: &Arc<Self>, audio: &str) {
+        if self.player.current_path().as_deref() != Some(audio) {
+            tracing::debug!("video: a failed picture for a track no longer playing, ignored");
+            return;
+        }
+        let Some(item) = self.current_item().await else { return };
+        self.forget_video_url(&item.video_id);
+        if self.orchestrator.mark_video_failed(&item.video_id) {
+            self.attach_current_video().await;
+        }
+    }
+    /// Detached: the resolve is a `/player` round trip, and the audio never waits on a picture.
+    fn attach_video(self: &Arc<Self>, video_id: &str, is_video: bool, audio_url: &str) {
+        if !is_video
+            || !native_video()
+            || crate::local::is_local_song(video_id)
+            || self.db.get_setting("music_videos").as_deref() != Some("true")
+        {
+            return;
+        }
+        let (st, id, audio) = (self.clone(), video_id.to_owned(), audio_url.to_owned());
+        tauri::async_runtime::spawn(async move {
+            let url = match st.video_url(&id) {
+                Some(u) => u,
+                None => {
+                    // ponytail: 720p, the ceiling the <video> path settled on for the player view.
+                    // mpv scales whatever it gets; raise it if theater mode ever shows the video.
+                    let disabled = st.disabled_clients();
+                    let Some(u) = st.orchestrator.resolve_video(&id, 720, &disabled).await else {
+                        return;
+                    };
+                    st.put_video_url(&id, u.clone());
+                    u
+                }
+            };
+            // Through the same chunked loopback proxy as the audio, for the same reason: mpv's
+            // open-ended range request is throttled to ~2x realtime (audioproxy.rs). Direct when
+            // the user has a proxy, as `mpv_stream_url` does.
+            let proxied = if crate::http::has_proxy() {
+                None
+            } else {
+                crate::audioproxy::register(&url, &std::collections::HashMap::new())
+            };
+            st.player.set_video_for(&audio, proxied.as_deref().unwrap_or(&url));
+            let _ = st.app.emit("video-ready", &id);
+        });
+    }
+    /// Remove every upcoming track `pick` matches. Guests: add-only, no clearing.
+    async fn drop_upcoming(self: &std::sync::Arc<Self>, pick: impl Fn(&SongItem) -> bool) {
+        if self.lt.is_guest().await {
+            return;
+        }
+        {
+            let mut q = self.queue.lock().await;
+            if !retain_upcoming(&mut q, |item| !pick(item)) {
+                return; // nothing matched, don't touch the lookahead
+            }
+            // Indices shifted, so a primed lookahead may point at the wrong slot. Drop it
+            // unconditionally (cheap; re-primed below), same as toggle_shuffle.
+            if q.lookahead_loaded.take().is_some() {
+                let _ = self.player.clear_playlist();
+            }
+        }
+        self.emit_queue().await;
+        self.persist_queue().await;
+        self.prime_lookahead(self.generation.load(Ordering::SeqCst)).await;
+        self.lt_broadcast_queue().await;
+    }
+}
+
+fn retain_upcoming(q: &mut QueueState, keep: impl Fn(&SongItem) -> bool) -> bool {
+    let cur = q.current;
+    let before = q.items.len();
+    let mut i = 0;
+    q.items.retain(|item| {
+        let k = i <= cur || keep(item);
+        i += 1;
+        k
+    });
+    if q.items.len() == before {
+        return false;
+    }
+    if let Some(orig) = q.shuffle_orig.as_mut() {
+        let left: HashSet<&str> = q.items.iter().map(|i| i.video_id.as_str()).collect();
+        orig.retain(|item| keep(item) || left.contains(item.video_id.as_str()));
+    }
+    true
 }
