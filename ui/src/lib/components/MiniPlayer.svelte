@@ -249,8 +249,7 @@
 		</div>
 	</div>
 
-	<!-- Right: what's next, and the transport. -->
-	<div class="relative flex w-64 shrink-0 flex-col gap-2 py-3 pl-1 pr-3">
+	<div class="relative flex w-[44%] shrink-0 flex-col gap-2 py-3 pl-1 pr-3">
 		<!-- Takes whatever height is left above the controls, and the fourth row runs past that edge
 		     and dissolves into it: the queue should look like it continues, not like it ends at
 		     whatever happened to fit. Tuned by eye at 560x180. -->
