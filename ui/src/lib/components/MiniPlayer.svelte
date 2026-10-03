@@ -128,21 +128,22 @@
 		style="background:linear-gradient(to right,rgb(0 0 0/0.72) 0%,rgb(0 0 0/0.58) 70%,rgb(0 0 0/0) 100%)"
 	></div>
 
-	<!-- Back to the app. Hidden until the pointer is over the widget: it is not part of the design,
-	     it is the way out of it. The tray icon does the same thing. The command destroys this very
-	     window, so its reply lands nowhere — the rejection is swallowed rather than left dangling. -->
-	<button
-		class="absolute left-2 top-2 z-10 flex size-6 cursor-pointer items-center justify-center rounded-md text-white/60 opacity-0 transition hover:bg-white/15 hover:text-white focus-visible:opacity-100 group-hover:opacity-100"
-		onclick={() => api.closeMini().catch(() => {})}
-		title={t('common.back')}
-		aria-label={t('common.back')}
-	>
-		<HugeiconsIcon icon={MaximizeScreenIcon} class="h-3.5 w-3.5" />
-	</button>
+
 
 	<!-- Left: what's playing, over the art. -->
 	<div class="relative flex min-w-0 flex-1 flex-col justify-between p-3.5 pl-4">
-		<div class="flex items-center justify-end gap-0.5">
+		<div class="flex items-center gap-0.5">
+			<!-- Back to the app. Hidden until the pointer is over the widget: it is not part of the design,
+			     it is the way out of it. The tray icon does the same thing. The command destroys this very
+			     window, so its reply lands nowhere — the rejection is swallowed rather than left dangling. -->
+			<button
+				class="mr-auto -ml-1 flex size-6 cursor-pointer items-center justify-center rounded-md text-white/60 opacity-0 transition hover:bg-white/15 hover:text-white focus-visible:opacity-100 group-hover:opacity-100"
+				onclick={() => api.closeMini().catch(() => {})}
+				title={t('common.back')}
+				aria-label={t('common.back')}
+			>
+				<HugeiconsIcon icon={MaximizeScreenIcon} class="h-3.5 w-3.5" />
+			</button>
 			<!-- Volume. The slider sits *in flow* to the left of its icon and grows from zero width:
 			     the row is right-aligned, so it expands into the empty space on its left and the
 			     rating buttons never move. In flow, and with no gap, so the wrapper's own box covers both —
