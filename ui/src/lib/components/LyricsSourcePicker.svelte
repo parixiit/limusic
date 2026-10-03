@@ -11,6 +11,7 @@
 		Loading03Icon,
 		MagicWand01Icon,
 		MinusSignIcon,
+		MusicNote01Icon,
 		PinIcon,
 		PlusSignIcon,
 		Search01Icon,
@@ -83,6 +84,16 @@
 		})
 	);
 
+	const visibleProviders = $derived(
+		providers.filter((p) => {
+			const showing = lyrics?.provider === p.id;
+			if (showing) return true;
+			const r = results[p.id];
+			// Only show if it finished successfully with lyrics
+			return r?.status === 'done' && !!r.lyrics;
+		})
+	);
+
 	// A new song closes the picker and forgets the last one's answers and search.
 	let shownFor = '';
 	$effect(() => {
@@ -111,24 +122,27 @@
 		const key = `${request.videoId}\n${query?.title ?? ''}\n${query?.artists ?? ''}`;
 		if (key === resultsFor) return;
 		resultsFor = key;
-		results = {};
+		const init: Record<string, Result> = {};
 		for (const p of providers) {
-			if (!query && lyrics?.provider === p.id) results[p.id] = { status: 'done', lyrics };
-			else results[p.id] = { status: 'idle' };
-			if (p.on && results[p.id].status === 'idle') check(p.id);
+			if (!query && lyrics?.provider === p.id) init[p.id] = { status: 'done', lyrics };
+			else init[p.id] = { status: 'idle' };
+		}
+		results = init;
+		for (const p of providers) {
+			if (p.on && init[p.id]?.status === 'idle') check(p.id);
 		}
 	}
 
 	function check(id: string) {
 		const key = resultsFor;
-		results[id] = { status: 'loading' };
+		results = { ...results, [id]: { status: 'loading' } };
 		api
 			.getLyrics({ ...request, source: id })
 			.then((l) => {
-				if (resultsFor === key) results[id] = { status: 'done', lyrics: l };
+				if (resultsFor === key) results = { ...results, [id]: { status: 'done', lyrics: l } };
 			})
 			.catch(() => {
-				if (resultsFor === key) results[id] = { status: 'error' };
+				if (resultsFor === key) results = { ...results, [id]: { status: 'error' } };
 			});
 	}
 
@@ -197,22 +211,22 @@
 
 <Popover.Root bind:open>
 	<Popover.Trigger
-		class="group -ml-2 flex min-w-0 cursor-pointer items-center gap-1.5 rounded-full py-0.5 pl-2 pr-1.5 transition-colors hover:bg-foreground/10 hover:text-foreground data-[state=open]:bg-foreground/10 data-[state=open]:text-foreground"
+		class="group inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-[11px] font-medium text-muted-foreground/60 transition-colors hover:text-muted-foreground data-[state=open]:text-foreground"
 		title={lyrics?.pinned ? t('lyrics.chosen') : undefined}
 	>
 		{#if !lyrics}
-			<HugeiconsIcon icon={Search01Icon} class="h-3.5 w-3.5 shrink-0" />
+			<HugeiconsIcon icon={Search01Icon} class="h-3 w-3 shrink-0 opacity-70" />
 		{/if}
 		<span class="truncate">{attribution}</span>
 		{#if lyrics?.pinned}
-			<HugeiconsIcon icon={PinIcon} class="h-3 w-3 shrink-0 text-primary" />
+			<HugeiconsIcon icon={PinIcon} class="h-2.5 w-2.5 shrink-0 text-primary" />
 		{/if}
 		{#if offset}
-			<span class="shrink-0 font-medium tabular-nums text-primary">{offsetLabel}</span>
+			<span class="shrink-0 tabular-nums text-primary">{offsetLabel}</span>
 		{/if}
 		<HugeiconsIcon
 			icon={ArrowUp01Icon}
-			class="h-3 w-3 shrink-0 opacity-60 transition-transform group-data-[state=open]:rotate-180"
+			class="h-2.5 w-2.5 shrink-0 opacity-40 transition-transform duration-200 group-hover:opacity-75 group-data-[state=open]:rotate-180"
 		/>
 	</Popover.Trigger>
 	<Popover.Content
@@ -292,60 +306,42 @@
 			{/if}
 
 			<div>
-				{#each providers as p (p.id)}
-					{@const r = results[p.id] ?? { status: 'idle' }}
-					{@const hit = r.status === 'done' ? r.lyrics : null}
+				{#each providers.filter(p => {
+					const showing = lyrics?.provider === p.id;
+					if (showing) return true;
+					const r = results[p.id];
+					if (r?.status === 'done') return !!r.lyrics;
+					return false;
+				}) as p (p.id)}
+					{@const r = results[p.id]}
 					{@const showing = lyrics?.provider === p.id}
+					{@const hit = r?.status === 'done' ? r.lyrics : null}
 					{@const chosen = showing && pinned}
-					{@const dead = r.status === 'done' && !hit}
 					<button
 						role="radio"
 						aria-checked={chosen}
-						aria-disabled={dead || r.status === 'loading'}
-						title={!p.on && r.status === 'idle' ? t('lyrics.off_hint') : undefined}
 						onclick={() => {
-							if (r.status === 'idle' || r.status === 'error') check(p.id);
-							else if (hit && !chosen) choose(p.id);
+							if (hit && !chosen) choose(p.id);
 						}}
-						class="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors {dead
-							? 'cursor-default'
-							: 'cursor-pointer hover:bg-muted/60'} {chosen ? 'bg-muted/50' : ''}"
+						class="group flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors cursor-pointer hover:bg-muted/60 {chosen ? 'bg-muted/50' : ''}"
 					>
 						<!-- The dot is what's on screen, whether Automatic put it there or you did. -->
 						<span
 							class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors {showing
 								? 'border-primary'
-								: dead
-									? 'border-border/60'
-									: 'border-muted-foreground/40 group-hover:border-muted-foreground/70'}"
+								: 'border-muted-foreground/40 group-hover:border-muted-foreground/70'}"
 						>
 							{#if showing}<span class="h-1.5 w-1.5 rounded-full bg-primary"></span>{/if}
 						</span>
 						<span
-							class="min-w-0 flex-1 truncate text-sm {dead || !p.on
-								? 'text-muted-foreground'
-								: ''} {showing ? 'font-medium' : ''}"
+							class="min-w-0 flex-1 truncate text-sm {showing ? 'font-medium' : ''}"
 						>
 							{p.name}
 						</span>
 						{#if busy === p.id}
 							<HugeiconsIcon icon={Loading03Icon} class="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" />
 						{/if}
-						{#if r.status === 'loading'}
-							<span class="flex shrink-0 items-center gap-1.5">
-								<span class="h-4 w-14 animate-pulse rounded-full bg-muted"></span>
-							</span>
-						{:else if r.status === 'idle'}
-							<span class="shrink-0 text-[11px] text-muted-foreground">
-								{t('lyrics.off')} ·
-								<span class="font-medium text-primary group-hover:underline">{t('lyrics.check')}</span>
-							</span>
-						{:else if r.status === 'error'}
-							<span class="shrink-0 text-[11px] text-muted-foreground">
-								{t('lyrics.unreachable')} ·
-								<span class="font-medium text-primary group-hover:underline">{t('lyrics.retry')}</span>
-							</span>
-						{:else if hit}
+						{#if hit}
 							{@const kind = lyricsKind(hit)}
 							{#if hit.lines.some((l) => l.translation)}
 								<span title={t('lyrics.translated')} class="shrink-0 text-muted-foreground">
@@ -353,14 +349,10 @@
 								</span>
 							{/if}
 							<span
-								class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {KIND_CLASS[
-									kind
-								]}"
+								class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide {KIND_CLASS[kind]}"
 							>
 								{t(KIND_LABEL[kind])}
 							</span>
-						{:else}
-							<span class="shrink-0 text-[11px] text-muted-foreground/70">{t('lyrics.not_found')}</span>
 						{/if}
 					</button>
 				{/each}
