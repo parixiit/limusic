@@ -22,6 +22,7 @@ enum MediaUpdate {
     Metadata { title: String, artist: String, album: Option<String>, cover: Option<String> },
     Duration(f64),
     Playback { playing: bool, pos: f64 },
+    #[allow(dead_code)]
     Volume(i64), // slider percent, 0-100
 }
 

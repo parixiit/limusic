@@ -259,7 +259,7 @@ fn shrink(
             let mut acc = [0u32; 3];
             for y in oy * f..(oy + 1) * f {
                 let at = y * stride + ox * f * 4;
-                for px in src[at..at + f * 4].chunks_exact(4) {
+                for px in src[at..at + f * 4].as_chunks::<4>().0 {
                     acc[0] += px[2] as u32;
                     acc[1] += px[1] as u32;
                     acc[2] += px[0] as u32;

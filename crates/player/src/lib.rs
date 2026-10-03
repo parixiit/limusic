@@ -640,7 +640,7 @@ impl Player {
         // seek past it. A backward seek can need the network too (mpv prunes behind the reader);
         // the mpv log is what says which, when `LIMUSIC_MPV_LOG` is on.
         let cached_to = self.mpv().get_property::<f64>("demuxer-cache-time").ok();
-        let past_cache_end = cached_to.map_or(true, |c| position_secs > c);
+        let past_cache_end = cached_to.is_none_or(|c| position_secs > c);
         tracing::info!(to = position_secs, cached_to, past_cache_end, "seek");
         self.mpv().command("seek", &[&position_secs.to_string(), "absolute"])?;
         Ok(())

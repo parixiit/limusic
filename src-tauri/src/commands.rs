@@ -1161,10 +1161,11 @@ pub async fn add_to_playlist(
     state: St<'_>,
     playlist_id: String,
     video_id: String,
+    allow_duplicates: Option<bool>,
 ) -> Result<bool, String> {
     let client = editable_playlist(&state, &playlist_id)?;
     let added =
-        state.it.playlist_add(client, &playlist_id, &video_id).await.map_err(|e| e.to_string())?;
+        state.it.playlist_add(client, &playlist_id, &video_id, allow_duplicates.unwrap_or(false)).await.map_err(|e| e.to_string())?;
     // Also on `false`: YouTube refusing a duplicate means the playlist holds the track, which is
     // exactly what the index should say. A stale index is how it got asked in the first place.
     state.db.add_playlist_track(&playlist_id, &video_id);
@@ -2228,4 +2229,55 @@ mod tests {
         );
         assert_eq!(row.title, played.title, "the song itself survives");
     }
+}
+
+/// `devicePixelRatio`, which Windows needs for the page zoom; Linux reads the zoom off the webview.
+#[tauri::command]
+pub async fn native_video_rect(
+    app: tauri::AppHandle,
+    state: St<'_>,
+    rect: Option<[f64; 4]>,
+    dpr: Option<f64>,
+) -> Result<bool, String> {
+    #[cfg(target_os = "linux")]
+    {
+        let _ = dpr;
+        Ok(crate::nativevideo::set_rect(&app, state.inner().clone(), rect).await)
+    }
+    #[cfg(windows)]
+    return Ok(
+        crate::nativevideo::set_rect(&app, state.inner().clone(), rect, dpr.unwrap_or(1.0)).await
+    );
+    #[cfg(not(any(target_os = "linux", windows)))]
+    {
+        let _ = (app, state, rect, dpr);
+        Ok(false)
+    }
+}
+
+/// second. Raw bytes, so the ~22 KB a frame skips JSON both ways.
+#[tauri::command]
+pub async fn ambient_frame(after: u32) -> tauri::ipc::Response {
+    #[cfg(any(target_os = "linux", windows))]
+    let frame = crate::nativevideo::next_frame(after).await.map(|f| f.to_vec());
+    // Typed: on macOS a bare `None` leaves nothing to infer from, and the PR checks only build on
+    // Linux, so this broke rc.3's Windows and macOS builds with every check green.
+    #[cfg(not(any(target_os = "linux", windows)))]
+    let frame: Option<Vec<u8>> = {
+        let _ = after;
+        None
+    };
+    tauri::ipc::Response::new(frame.unwrap_or_default())
+}
+
+/// The widget's shrink/expand button (#301).
+#[tauri::command]
+pub async fn set_mini_compact(app: tauri::AppHandle, compact: bool) -> Result<(), String> {
+    crate::mini::set_compact(&app, compact)
+}
+
+/// The arguments this process was launched with, handed over once (#348). See `LAUNCH_ARGS`.
+#[tauri::command]
+pub fn take_launch_args() -> Vec<String> {
+    std::mem::take(&mut *crate::LAUNCH_ARGS.lock().unwrap())
 }

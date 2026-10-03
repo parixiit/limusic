@@ -3075,8 +3075,8 @@ impl AppState {
             SyncCommand::ChangeTrack { track, position_ms, playing, queue } => {
                 self.lt_apply_change_track(track, position_ms, playing, queue).await
             }
-            SyncCommand::Play { position_ms, server_time_ms } => {
-                self.lt_apply_play(position_ms, server_time_ms).await
+            SyncCommand::Play { position_ms } => {
+                self.lt_apply_play(position_ms).await
             }
             SyncCommand::Pause { position_ms } => self.lt_apply_pause(position_ms).await,
             SyncCommand::Seek { position_ms } => {
@@ -3198,15 +3198,10 @@ impl AppState {
     }
 
     /// Guest: apply a play, offsetting the target position by transit latency (context/19 §6.5).
-    async fn lt_apply_play(&self, position_ms: i64, server_time_ms: i64) {
-        let target = if server_time_ms > 0 {
-            position_ms + (now_ms() - server_time_ms).max(0)
-        } else {
-            position_ms
-        };
+    async fn lt_apply_play(&self, position_ms: i64) {
         let cur_ms = (self.current_position() * 1000.0) as i64;
-        if (cur_ms - target).abs() > 2000 {
-            let _ = self.player.seek(target as f64 / 1000.0);
+        if (cur_ms - position_ms).abs() > 2000 {
+            let _ = self.player.seek(position_ms as f64 / 1000.0);
         }
         let _ = self.player.play();
     }
@@ -3763,6 +3758,7 @@ impl AppState {
 }
 
 /// Current wall-clock in ms (for guest latency compensation).
+#[allow(dead_code)]
 fn now_ms() -> i64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -5151,4 +5147,157 @@ mod tests {
         q.keep_context(0.0);
         assert!(q.prev_context.is_none());
     }
+    /// Push the volume to MPRIS (#220). Called after every change, wherever it came from.
+    pub fn media_set_volume(&self, volume: i64) {
+        if let Some(m) = &self.media {
+            m.set_volume(volume);
+        }
+    }
+    /// [`Self::attach_video`] for the track already playing, when music videos were just turned on.
+    pub async fn attach_current_video(self: &Arc<Self>) {
+        if let (Some(item), Some(path)) = (self.current_item().await, self.player.current_path()) {
+            self.attach_video(&item.video_id, item.is_video, &path);
+        }
+    }
+    /// than when the next track starts and notices.
+    pub async fn autoplay_changed(self: &std::sync::Arc<Self>, on: bool) {
+        if on {
+            let gen = self.generation.load(Ordering::SeqCst);
+            self.extend_queue_radio(gen).await;
+        } else {
+            self.drop_upcoming(|item| item.autoplay).await;
+        }
+    }
+    /// dead URL until it next plays, fails again, and is handled then.
+    pub async fn on_video_failed(self: &Arc<Self>, audio: &str) {
+        if self.player.current_path().as_deref() != Some(audio) {
+            tracing::debug!("video: a failed picture for a track no longer playing, ignored");
+            return;
+        }
+        let Some(item) = self.current_item().await else { return };
+        self.forget_video_url(&item.video_id);
+        if self.orchestrator.mark_video_failed(&item.video_id) {
+            self.attach_current_video().await;
+        }
+    }
+}
+
+pub fn native_video() -> bool {
+    #[cfg(any(target_os = "linux", windows))]
+    return crate::nativevideo::available();
+    #[cfg(not(any(target_os = "linux", windows)))]
+    false
+}
+
+
+impl AppState {
+    /// Push the volume to MPRIS (#220). Called after every change, wherever it came from.
+    pub fn media_set_volume(&self, volume: i64) {
+        if let Some(m) = &self.media {
+            m.set_volume(volume);
+        }
+    }
+    /// [`Self::attach_video`] for the track already playing, when music videos were just turned on.
+    pub async fn attach_current_video(self: &Arc<Self>) {
+        if let (Some(item), Some(path)) = (self.current_item().await, self.player.current_path()) {
+            self.attach_video(&item.video_id, item.is_video, &path);
+        }
+    }
+    /// than when the next track starts and notices.
+    pub async fn autoplay_changed(self: &std::sync::Arc<Self>, on: bool) {
+        if on {
+            let gen = self.generation.load(Ordering::SeqCst);
+            self.extend_queue_radio(gen).await;
+        } else {
+            self.drop_upcoming(|item| item.autoplay).await;
+        }
+    }
+    /// dead URL until it next plays, fails again, and is handled then.
+    pub async fn on_video_failed(self: &Arc<Self>, audio: &str) {
+        if self.player.current_path().as_deref() != Some(audio) {
+            tracing::debug!("video: a failed picture for a track no longer playing, ignored");
+            return;
+        }
+        let Some(item) = self.current_item().await else { return };
+        self.forget_video_url(&item.video_id);
+        if self.orchestrator.mark_video_failed(&item.video_id) {
+            self.attach_current_video().await;
+        }
+    }
+    /// Detached: the resolve is a `/player` round trip, and the audio never waits on a picture.
+    fn attach_video(self: &Arc<Self>, video_id: &str, is_video: bool, audio_url: &str) {
+        if !is_video
+            || !native_video()
+            || crate::local::is_local_song(video_id)
+            || self.db.get_setting("music_videos").as_deref() != Some("true")
+        {
+            return;
+        }
+        let (st, id, audio) = (self.clone(), video_id.to_owned(), audio_url.to_owned());
+        tauri::async_runtime::spawn(async move {
+            let url = match st.video_url(&id) {
+                Some(u) => u,
+                None => {
+                    // ponytail: 720p, the ceiling the <video> path settled on for the player view.
+                    // mpv scales whatever it gets; raise it if theater mode ever shows the video.
+                    let disabled = st.disabled_clients();
+                    let Some(u) = st.orchestrator.resolve_video(&id, 720, &disabled).await else {
+                        return;
+                    };
+                    st.put_video_url(&id, u.clone());
+                    u
+                }
+            };
+            // Through the same chunked loopback proxy as the audio, for the same reason: mpv's
+            // open-ended range request is throttled to ~2x realtime (audioproxy.rs). Direct when
+            // the user has a proxy, as `mpv_stream_url` does.
+            let proxied = if crate::http::has_proxy() {
+                None
+            } else {
+                crate::audioproxy::register(&url, &std::collections::HashMap::new())
+            };
+            st.player.set_video_for(&audio, proxied.as_deref().unwrap_or(&url));
+            let _ = st.app.emit("video-ready", &id);
+        });
+    }
+    /// Remove every upcoming track `pick` matches. Guests: add-only, no clearing.
+    async fn drop_upcoming(self: &std::sync::Arc<Self>, pick: impl Fn(&SongItem) -> bool) {
+        if self.lt.is_guest().await {
+            return;
+        }
+        {
+            let mut q = self.queue.lock().await;
+            if !retain_upcoming(&mut q, |item| !pick(item)) {
+                return; // nothing matched, don't touch the lookahead
+            }
+            // Indices shifted, so a primed lookahead may point at the wrong slot. Drop it
+            // unconditionally (cheap; re-primed below), same as toggle_shuffle.
+            if q.lookahead_loaded.take().is_some() {
+                let _ = self.player.clear_playlist();
+            }
+        }
+        self.emit_queue().await;
+        self.persist_queue().await;
+        self.prime_lookahead(self.generation.load(Ordering::SeqCst)).await;
+        self.lt_broadcast_queue().await;
+    }
+}
+
+fn retain_upcoming(q: &mut QueueState, keep: impl Fn(&SongItem) -> bool) -> bool {
+    let cur = q.current;
+    let before = q.items.len();
+    let mut i = 0;
+    q.items.retain(|item| {
+        let k = i <= cur || keep(item);
+        i += 1;
+        k
+    });
+    if q.items.len() == before {
+        return false;
+    }
+    if let Some(orig) = q.shuffle_orig.as_mut() {
+        let left: HashSet<&str> = q.items.iter().map(|i| i.video_id.as_str()).collect();
+        orig.retain(|item| keep(item) || left.contains(item.video_id.as_str()));
+    }
+    true
 }

@@ -457,3 +457,5 @@
 		<p class="p-4 text-sm text-muted-foreground">{t('player.empty_queue')}</p>
 	{/if}
 </div>
+/ /  
+ 

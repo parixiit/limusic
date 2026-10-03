@@ -300,11 +300,6 @@ async fn ask(
 /// Providers run **in parallel**: all enabled ones are fired simultaneously and the first synced
 /// or instrumental result wins. This cuts the common case from N serial network RTTs to one RTT.
 async fn fetch(state: Arc<AppState>, mut req: LyricsRequest) -> (Option<Lyrics>, bool) {
-    let next = resolve(&*state, &mut req).await;
-    if let Err(e) = &next {
-        tracing::debug!(error = %e, "lyrics: next() failed");
-    }
-    let cacheable = |id: &str| req.duration.is_some() || matches!(id, "youtube" | "simpmusic");
 
     let providers: Vec<String> = provider_order(state.db.get_setting("lyrics_providers").as_deref())
         .into_iter()
@@ -316,17 +311,34 @@ async fn fetch(state: Arc<AppState>, mut req: LyricsRequest) -> (Option<Lyrics>,
         return (None, false);
     }
 
-    // Snapshot what every spawned task needs — Arc clones are cheap.
-    let next_snap = next.as_ref().map(|n| n.clone()).map_err(|e: &String| e.clone());
-
     let mut set = tokio::task::JoinSet::new();
+    
+    // Providers that don't need `resolve` can start instantly if duration is known.
+    let needs_resolve = req.duration.is_none() || providers.contains(&"youtube".to_string());
+    
+    let next_result = if needs_resolve {
+        let next = resolve(&*state, &mut req).await;
+        if let Err(e) = &next {
+            tracing::debug!(error = %e, "lyrics: next() failed");
+        }
+        next
+    } else {
+        Ok(None)
+    };
+
+    let next_snap = next_result.as_ref().map(|n| n.clone()).map_err(|e: &String| e.clone());
+    let cacheable = |id: &str| req.duration.is_some() || matches!(id, "youtube" | "simpmusic");
+
     for id in providers {
         let state2 = Arc::clone(&state);
         let req2 = req.clone();
         let next2 = next_snap.as_ref().map(|n| n.clone()).map_err(|e: &String| e.clone());
         set.spawn(async move {
             let next_ref: Result<Option<NextResult>, String> = next2;
-            let result = ask(&id, &state2, &req2, &next_ref).await;
+            let result = tokio::time::timeout(
+                std::time::Duration::from_secs(3),
+                ask(&id, &state2, &req2, &next_ref)
+            ).await.unwrap_or_else(|_| Err("timeout".to_string()));
             (id, result)
         });
     }

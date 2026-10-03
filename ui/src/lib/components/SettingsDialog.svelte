@@ -477,7 +477,7 @@
 		toast.info("Restart required to apply Fast Start", 8000, {
 			label: "Restart",
 			onClick: () => {
-				relaunch().catch((e) => toast.error(String(e)));
+				relaunch().catch((e: unknown) => toast.error(String(e)));
 			}
 		});
 	}
