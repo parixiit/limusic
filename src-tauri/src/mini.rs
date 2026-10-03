@@ -46,6 +46,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
             .title("Limusic")
             .inner_size(W, H)
+            .min_inner_size(460.0, 140.0)
             .resizable(true)
             .decorations(false)
             .transparent(true)
