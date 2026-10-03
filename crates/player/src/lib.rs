@@ -12,6 +12,9 @@ use libmpv2::events::{Event, EventContext, PropertyData};
 use libmpv2::{Format, Mpv};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
+mod video;
+pub use video::{GlDisplay, Thumbnail, VideoRenderer};
+
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("mpv: {0}")]
@@ -36,6 +39,11 @@ pub enum PlayerEvent {
     /// file starts (and when the playlist runs dry). Anything reading playback state off `pause`
     /// alone never hears that a track began, and only recovers on a manual pause/unpause.
     Playing(bool),
+    /// mpv's `pause` flag changed: someone pressed pause or play. Unlike [`PlayerEvent::Playing`]
+    /// this says nothing when the playlist runs dry or a new file starts, which is what a Listen
+    /// Together host has to broadcast: a track change is announced on its own, and a "stopped"
+    /// from the gap between two tracks reaches the room after the next one has started.
+    Paused(bool),
     /// One track finished normally (EOF) — orchestrator advances the queue.
     TrackEnded,
     /// One track died (end-file with error, e.g. its URL 403'd). mpv may have auto-advanced
@@ -51,6 +59,11 @@ pub enum PlayerEvent {
     /// user is hearing; what is owed is evicting the next track's cached URL, see
     /// `AppState::on_lookahead_failed`.
     LookaheadFailed(String),
+    /// mpv could not open the music video for the audio file it names (exactly as mpv was handed
+    /// it). The sound is unaffected; the app decides whether another stream for the picture is
+    /// worth trying. The open is a network round trip, so a skip or a crossfade can land first,
+    /// and the file named is then no longer the one playing.
+    VideoFailed(String),
     Error(String),
 }
 
@@ -147,6 +160,16 @@ struct Decks {
     loop_file: AtomicBool,
     cache_dir: String,
     tx: UnboundedSender<PlayerEvent>,
+    /// Music videos waiting for (or attached to) the audio file they belong to. See `video.rs`.
+    videos: Mutex<video::Videos>,
+    /// Someone can see the picture, so the deck being heard decodes it.
+    video_visible: AtomicBool,
+    /// Set by the video renderer: deck b needs a render context of its own before it can show a
+    /// picture, and only the GL thread can make one.
+    on_new_deck: OnceLock<Box<dyn Fn() + Send + Sync>>,
+    /// The native window mpv draws the picture into, 0 for none (the render API). See
+    /// [`Player::set_video_window`].
+    wid: AtomicI64,
 }
 
 impl Decks {
@@ -177,11 +200,30 @@ fn new_mpv(cache_dir: &str) -> Result<Mpv, Error> {
     // Mirror the Phase-0 spike: create, then set_property (setting some options during the
     // pre-init phase returns PROPERTY_NOT_FOUND on this mpv build).
     let mpv = Mpv::new()?;
-    mpv.set_property("vid", "no")?; // audio only
-                                    // The app resolves every URL itself; mpv shelling out to youtube-dl is never right and buries
-                                    // the real failure. A stream that 403s went "Stream ends prematurely" -> ytdl_hook ->
-                                    // "youtube-dl failed: not found" -> "Failed to recognize file format", so the user was told
-                                    // their audio format was wrong when the download had been refused (issue #292).
+    // No picture until the app asks for one (`set_video_visible`). When it does, it goes through
+    // the render API to the app's own GL surface: pinned, because left to probe mpv opens a window
+    // of its own. `video-timing-offset=0` because otherwise each render call blocks until its
+    // frame's display time, and it is made on the app's UI thread. See video.rs.
+    mpv.set_property("vid", "no")?;
+    // The OSD off: the app has its own seek bar, and mpv otherwise draws its own into the picture
+    // on every seek.
+    // Best-effort, unlike everything around them: an mpv that refused one of these would otherwise
+    // fail the whole player, and the music must never depend on the picture.
+    for (key, value) in [
+        ("vo", "libmpv"),
+        ("hwdec", "auto-safe"),
+        ("video-timing-offset", "0"),
+        ("osd-level", "0"),
+        ("osd-bar", "no"),
+    ] {
+        if let Err(e) = mpv.set_property(key, value) {
+            tracing::warn!(key, error = %e, "mpv refused a video option");
+        }
+    }
+    // The app resolves every URL itself; mpv shelling out to youtube-dl is never right and buries
+    // the real failure. A stream that 403s went "Stream ends prematurely" -> ytdl_hook ->
+    // "youtube-dl failed: not found" -> "Failed to recognize file format", so the user was told
+    // their audio format was wrong when the download had been refused (issue #292).
     mpv.set_property("ytdl", "no")?;
     mpv.set_property("gapless-audio", "yes")?;
     // mpv's native Matroska demuxer floors WebM DiscardPadding nanoseconds to Opus samples. For
@@ -298,6 +340,10 @@ impl Player {
             loop_file: AtomicBool::new(false),
             cache_dir: cache_dir.to_owned(),
             tx,
+            videos: Mutex::new(video::Videos::default()),
+            video_visible: AtomicBool::new(false),
+            on_new_deck: OnceLock::new(),
+            wid: AtomicI64::new(0),
         });
         spawn_deck_events(&a, 0, decks.clone())?;
         Ok(Player { decks, events: Some(rx), af: Mutex::new((None, 0)) })
@@ -316,8 +362,19 @@ impl Player {
             return Ok(m.clone());
         }
         let m = Arc::new(new_mpv(&self.decks.cache_dir)?);
+        let wid = self.decks.wid.load(Ordering::SeqCst);
+        if wid != 0 {
+            // Safe to carry on without it: a refused `wid` leaves the render API output, which
+            // has no context here and so shows nothing, rather than a window of mpv's own.
+            if let Err(e) = video::embed(&m, wid) {
+                tracing::warn!(error = %e, "video: the crossfade deck refused the video window");
+            }
+        }
         spawn_deck_events(&m, deck, self.decks.clone())?;
         let _ = self.decks.b.set(m);
+        if let Some(wake) = self.decks.on_new_deck.get() {
+            wake();
+        }
         Ok(self.decks.b.get().expect("deck b just set").clone())
     }
 
@@ -345,6 +402,24 @@ impl Player {
         // in progress too: a skip during the last seconds of a track should not leave the old one
         // still fading under the new one.
         self.drop_preload(true);
+        // A paused outgoing file blips if the caller's play() unpauses it before mpv has unloaded
+        // it (issue #306). `loadfile replace` and `stop` only set a flag: mpv's core thread tears
+        // the file down later, and calls made back to back all run before it gets the chance, so
+        // `pause=false` used to land on the old file every time. Stop it and wait until mpv has
+        // really let go: `path` goes unavailable only after the teardown, which flushes the audio
+        // output. (`idle-active` can't say this, it flips the moment `stop` is issued.) Playing
+        // track changes are left alone, the old track is audible there anyway.
+        // ponytail: bounded poll, a few ms in practice; wait on the deck's EndFile event if 50 ms
+        // ever turns out too short.
+        if self.mpv().get_property::<bool>("pause").unwrap_or(false) {
+            self.mpv().command("stop", &[])?;
+            for _ in 0..50 {
+                if self.mpv().get_property::<String>("path").is_err() {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(1));
+            }
+        }
         self.apply_headers(headers)?;
         self.set_gain(gain_db)?;
         let args = loadfile_args(url, start);
@@ -803,8 +878,9 @@ fn event_loop(mut ev: EventContext, deck: usize, decks: Arc<Decks>) {
                     Event::PropertyChange {
                         name: "pause", change: PropertyData::Flag(p), ..
                     } => {
+                        let changed = p != paused;
                         paused = p;
-                        None
+                        changed.then_some(PlayerEvent::Paused(p))
                     }
                     Event::PropertyChange {
                         name: "idle-active",
@@ -836,6 +912,7 @@ fn event_loop(mut ev: EventContext, deck: usize, decks: Arc<Decks>) {
                     // A cancelled preload gets here too (mpv delivers the event before the
                     // `stop`), which is what the generation check is for.
                     Event::FileLoaded => {
+                        video::file_loaded(&decks, deck);
                         if !live()
                             && decks.preload_armed.load(Ordering::SeqCst)
                                 == decks.preload_gen.load(Ordering::SeqCst)
@@ -989,6 +1066,7 @@ fn start_crossfade(decks: &Arc<Decks>, from: usize, fade: f64, send_track_ended:
     let gen = decks.fade_gen.load(Ordering::SeqCst);
     decks.fading.store(true, Ordering::Release);
     decks.active.store(1 - from, Ordering::SeqCst);
+    video::deck_swapped(decks);
     let _ = incoming.set_property("pause", false);
     // For a natural end-of-track crossfade, TrackEnded advances the queue. For a manual skip the
     // queue was already advanced by play_index — sending it again would skip two tracks.
@@ -1282,6 +1360,43 @@ mod tests {
         assert!(af().contains("alimiter"), "boost went in without its limiter: {}", af());
     }
 
+    /// Issue #306: loading over a paused track must not return while that track is still loaded,
+    /// because the caller's play() comes next and would unpause it for a moment. Without the wait
+    /// in `load` this failed on every run here: mpv applies back-to-back calls before its core
+    /// thread gets to unload anything.
+    #[test]
+    fn load_over_a_paused_track_unloads_it_first() {
+        use super::Player;
+        use std::collections::HashMap;
+        use std::time::{Duration, Instant};
+
+        let dir = std::env::temp_dir().join("limusic-load-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let p = Player::new(dir.to_str().unwrap()).expect("libmpv");
+        p.mpv().set_property("ao", "null").unwrap(); // no audio device needed
+        let path = || p.mpv().get_property::<String>("path").ok();
+        let old = "av://lavfi:sine=f=440:d=30";
+
+        p.load(old, &HashMap::new(), None, None).unwrap();
+        p.play().unwrap();
+        let t = Instant::now();
+        while path().as_deref() != Some(old) && t.elapsed() < Duration::from_secs(5) {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        assert_eq!(path().as_deref(), Some(old), "the first track never loaded");
+        p.pause().unwrap();
+
+        for _ in 0..10 {
+            p.load("av://lavfi:sine=f=1000:d=30", &HashMap::new(), Some(-3.0), None).unwrap();
+            assert_ne!(path().as_deref(), Some(old), "load returned with the paused track loaded");
+            p.load(old, &HashMap::new(), None, None).unwrap();
+            let t = Instant::now();
+            while path().as_deref() != Some(old) && t.elapsed() < Duration::from_secs(5) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+        }
+    }
+
     #[test]
     fn loadfile_start_is_a_file_local_option() {
         // No start: the plain 2-argument loadfile, unchanged (wait, now it has pause=no).
@@ -1387,5 +1502,48 @@ mod tests {
         // A dead or expired stream URL still has to reach the fallback clients.
         assert!(!is_ao_init_failed(&Error::Raw(mpv_error::LoadingFailed)));
         assert!(!is_ao_init_failed(&Error::Raw(mpv_error::NothingToPlay)));
+    }
+
+    /// A Listen Together host broadcasts `Paused`, so a track running out must not produce one:
+    /// it reached the room after the next track had started, with the old track's end as the
+    /// position, and guests seeked the new track past its own end.
+    #[test]
+    fn running_out_is_not_a_pause() {
+        use super::{Player, PlayerEvent};
+        use std::time::{Duration, Instant};
+
+        let dir = std::env::temp_dir().join("limusic-pause-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut p = Player::new(dir.to_str().unwrap()).expect("libmpv");
+        p.mpv().set_property("ao", "null").unwrap();
+        let mut rx = p.take_events().unwrap();
+        let mut until = |done: fn(&PlayerEvent) -> bool| {
+            let deadline = Instant::now() + Duration::from_secs(5);
+            let mut seen = Vec::new();
+            while Instant::now() < deadline {
+                match rx.try_recv() {
+                    Ok(e) => {
+                        let stop = done(&e);
+                        seen.push(e);
+                        if stop {
+                            return seen;
+                        }
+                    }
+                    Err(_) => std::thread::sleep(Duration::from_millis(10)),
+                }
+            }
+            panic!("timed out, saw {seen:?}");
+        };
+
+        p.load("av://lavfi:sine=duration=0.3", &Default::default(), None, None).unwrap();
+        let _ = p.play();
+        // Through the end of the file and mpv going idle, which is the `Playing(false)` that used
+        // to be broadcast as a pause.
+        let seen = until(|e| matches!(e, PlayerEvent::Playing(false)));
+        assert!(seen.iter().any(|e| matches!(e, PlayerEvent::TrackEnded)), "{seen:?}");
+        assert!(!seen.iter().any(|e| matches!(e, PlayerEvent::Paused(_))), "{seen:?}");
+
+        p.pause().unwrap();
+        until(|e| matches!(e, PlayerEvent::Paused(true)));
     }
 }

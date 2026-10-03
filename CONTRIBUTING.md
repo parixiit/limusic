@@ -32,6 +32,10 @@ with you, so please open an issue instead of committing the churn.
 Keep formatting out of feature commits either way. A reformat of unrelated files
 buries the real change and makes review much harder.
 
+The frontend has no Prettier config, so switch off format-on-save for `ui/`
+rather than letting your editor restyle the files you open (quotes, trailing
+commas). Match the style of the file you are in.
+
 ## Tests
 
 ```bash
@@ -70,11 +74,25 @@ setup.
 
 ## Pull requests
 
+- **Target `dev`, not `master`.** Every change lands on `dev` first, and `master`
+  only moves when a release is cut from it. Branch from `dev` and pick it as the
+  base when you open the PR.
 - **Open from a branch, not your fork's `master`.** It keeps your default branch
   clean and makes it much easier to take your changes.
-- One concern per PR where you can manage it.
-- Say what you tested. "Played five tracks, checked light and dark" is worth
+- **Changing how the app looks or behaves? Open an issue first.** Describe what
+  bothers you, with a screenshot, and wait until we agree on the change before
+  writing code. Most of the UI is the way it is on purpose, and a PR that
+  redesigns it unasked will probably be closed.
+- **One change per PR.** Unrelated changes in one PR can't be reviewed or merged
+  separately, so open one each.
+- **Say why.** For every change, the description says what problem it fixes,
+  not only what the code does.
+- **Say what you tested.** "Played five tracks, checked light and dark" is worth
   more than a description of the code.
+- **Used AI to write the code? Say which model.** AI-assisted PRs are welcome,
+  but the description has to name the model that wrote the code (for example
+  "Claude Opus 5.5" or "GPT-5"), not just "AI". If an AI agent is opening the PR
+  itself, it should state its own model the same way.
 
 ## Translations
 

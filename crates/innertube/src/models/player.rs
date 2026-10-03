@@ -418,6 +418,25 @@ mod tests {
         assert_eq!(find_video_format(&sd, 2160).unwrap().itag, 248); // never the AV1/H.264 1080p
     }
 
+    /// A real WEB_REMIX `/player` reply for an OMV (dQw4w9WgXcQ, 2026-09-30, signed in; trimmed to
+    /// the fields read here, cipher strings scrubbed). The picture sits in the same
+    /// `adaptiveFormats` as the audio, which is what lets the orchestrator reuse the audio's reply,
+    /// and every format is ciphered, so the video URL has to be deciphered like the audio's.
+    #[test]
+    fn web_remix_reply_carries_the_music_video() {
+        let r: PlayerResponse =
+            serde_json::from_str(include_str!("../../tests/fixtures/player_web_remix_omv.json"))
+                .unwrap();
+        assert!(r.playability_status.is_ok());
+        assert_eq!(r.video_details.as_ref().and_then(|v| v.is_music_video()), Some(true));
+        let sd = r.streaming_data.unwrap();
+        let v = find_video_format(&sd, 720).unwrap();
+        assert_eq!(v.itag, 247); // the 720p VP9, never the H.264 136 beside it
+        assert!(v.direct_url().is_none() && v.cipher_string().is_some());
+        assert_eq!(find_video_format(&sd, 480).unwrap().itag, 244);
+        assert!(find_format(&sd, AudioQuality::High).unwrap().is_audio());
+    }
+
     /// Audio-only response (the ordinary case for a song): no video, so the view keeps the artwork.
     #[test]
     fn find_video_format_none_without_vp9() {

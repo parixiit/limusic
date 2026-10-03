@@ -1,13 +1,13 @@
 {
 	"selection": {
-		"actions": "선택한 곡의 작업",
+		"actions": "선택한 트랙에 대한 작업",
 		"count": "{count} 개",
 		"selected": "선택됨",
 		"not_selected": "선택되지 않음",
 		"hidden": "{count} 개 숨김",
 		"enter": "곡 선택",
 		"exit": "선택 모드 종료",
-		"hint": "작업을 수행할 곡을 선택하세요",
+		"hint": "작업을 진행할 트랙을 선택해 주세요",
 		"select_all": "모두 선택 ({count})",
 		"clear": "선택 해제",
 		"track": "{title}. 스페이스바로 선택, 엔터로 재생.",
@@ -18,7 +18,7 @@
 		"local_playlist": "컴퓨터에 저장된 파일은 유튜브 재생목록에 추가할 수 없습니다.",
 		"account_changed": "계정 변경으로 인한 곡 추가 중단.",
 		"playlist_partial": "{added}곡을 {playlist}에 추가함; 중복 {duplicates}곡; 미확인 {remaining}곡. {error}",
-		"remove": "이 재생목록에서 삭",
+		"remove": "이 플레이리스트에서 삭제",
 		"remove_confirm": "{count}개를 삭제하시겠습니까?"
 	},
 	"common": {
@@ -79,7 +79,7 @@
 		"search_this_playlist": "이 플레이리스트에서 검색",
 		"search_your_songs": "저장한 곡 검색",
 		"search_your_music": "내 음악에서 검색",
-		"filter_library": "내 보관함 필터링…",
+		"filter_library": "내 라이브러리 필터링…",
 		"command_description": "곡, 앨범, 아티스트, 플레이리스트 검색",
 		"shuffle_all": "전체 셔플",
 		"play_all": "전체 재생",
@@ -91,7 +91,7 @@
 	"nav": {
 		"home": "홈",
 		"search": "검색",
-		"library": "라이브러리",
+		"library": "보관함",
 		"settings": "설정",
 		"listen_together": "함께 듣기",
 		"new_playlist": "새 플레이리스트",
@@ -100,9 +100,9 @@
 		"sign_out": "로그아웃",
 		"switch_channel": "채널 전환",
 		"choose_channel": "유튜브 채널 선택",
-		"choose_channel_desc": "라이브러리, 좋아요 및 플레이리스트에 이 채널이 적용됩니다. 나중에 언제든 다시 변경할 수 있습니다.",
+		"choose_channel_desc": "보관함, 좋아요, 재생목록에 이 채널이 적용됩니다. 나중에 다시 변경할 수 있습니다.",
 		"cancel_sign_in": "로그인 취소",
-		"sign_in_hint": "YouTube Music 라이브러리와 플레이리스트를 확인하려면 Google 계정으로 로그인하세요.",
+		"sign_in_hint": "Google 계정으로 로그인하여 YouTube Music의 보관함과 재생목록을 확인해 보세요.",
 		"add_account": "계정 추가",
 		"remove_account": "계정 삭제",
 		"remove_account_title": "Limusic에서 제거하시겠습니까?",
@@ -164,7 +164,8 @@
 		"add_to_playlist": "플레이리스트에 추가",
 		"pin_to_top": "상단에 고정",
 		"unpin": "고정 해제",
-		"remove_from_this_playlist": "이 재생목록에서 삭제"
+		"remove_from_this_playlist": "이 재생목록에서 삭제",
+		"back_to": "{title}로 돌아가기"
 	},
 	"home": {
 		"good_morning": "좋은 아침이에요",
@@ -182,7 +183,29 @@
 		"show_section": "홈 화면에 {title} 표시",
 		"feed_empty": "홈 피드에 표시할 콘텐츠가 없습니다.",
 		"signed_out_hint": "로그인하고 내 감상 기록을 바탕으로 만든 맞춤 믹스와 플레이리스트를 홈 화면에서 만나보세요.",
-		"add_to_end": "재생목 맨 뒤에 추가"
+		"add_to_end": "재생목 맨 뒤에 추가",
+		"edit_home_desc": "변경 사항은 수정하는 즉시 페이지에 반영됩니다.",
+		"card_size": "카드 크기",
+		"card_size_desc": "화면에 표시되는 앨범, 재생목록, 아티스트의 크기를 설정합니다.",
+		"card_small": "작게",
+		"card_medium": "보통",
+		"card_large": "크",
+		"mood_chips": "무드 필터",
+		"mood_chips_desc": "피드 상단에 표시되는 필터 버튼으로, 특정 분위기나 장르의 음악만 모아볼 수 있습니다.",
+		"artwork_backdrop": "인사말 배경에 앨범 아트워크 표시",
+		"artwork_backdrop_desc": "현재 재생 중인 음악의 앨범 커버로 상단 헤더 배경을 은은하게 물들입니다.",
+		"sections": "섹션",
+		"sections_shown": "총 {total}개 중 {shown}개 표시 중",
+		"turn_all_off": "모두 끄기",
+		"turn_all_on": "모두 켜기",
+		"sections_hint": "섹션을 드래그하여 이동하거나, 핸들에 포커스를 맞춘 후 방향키를 사용하세요. 숨겨진 섹션은 기존 위치를 유지합니다.",
+		"move_section": "{title} 이동",
+		"moved_section": "{title} 섹션이 총 {total}개 중 {position}번째 위치로 이동",
+		"new_section": "신규",
+		"show_new": "새로운 섹션 표시",
+		"show_new_desc": "YouTube Music은 시간이 지나면서 섹션을 추가하거나 이름을 변경하기도 합니다. 이 옵션을 끄면 새로운 섹션이 숨김 상태로 여기에 추가되며, 직접 켤 때까지 표시되지 않습니다.",
+		"all_hidden": "홈 화면의 모든 섹션이 꺼져 있습니다.",
+		"look": "외관"
 	},
 	"history": {
 		"title": "기록",
@@ -243,7 +266,19 @@
 		"no_artists": "아직 저장된 아티스트가 없어요. 아티스트의 곡이나 앨범을 저장하면 여기에 자동으로 나타납니다.",
 		"on_repeat": "자주 듣는 곡",
 		"on_repeat_subtitle": "이번 달 가장 많이 재생한 곡 {count}개",
-		"songs_count": "{count}곡"
+		"songs_count": "{count}곡",
+		"delete_playlist_desc": "YouTube Music 계정에서 {title}(이)가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+		"delete_playlist_desc_local": "이 기기에서 {title} 콘텐츠가 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+		"songs_count_one": "곡 1개",
+		"on_this_device": "이 기기에 저장됨",
+		"on_this_device_tooltip": "YouTube Music 계정이 아닌 이 컴퓨터에 저장된 항목입니다",
+		"local_playlist_subtitle": "이 기기에 저장됨 • 곡 {count}개",
+		"local_playlist_subtitle_one": "이 기기에 저장됨 • 곡 1개",
+		"empty_playlist_hint": "아무 곡에서나 더보기( ⋯) 메뉴를 누른 후 '재생목록에 저장'을 선택하면 여기에 추가됩니다.",
+		"saved_in": "다음에 저장됨",
+		"saved_in_one": "{playlist} 재생목록에 저장됨",
+		"saved_in_many": "{count}개의 재생목록에 저장됨",
+		"saved_in_more": "외 {count}개"
 	},
 	"local": {
 		"scanning": "폴더 탐색 중...",
@@ -319,7 +354,13 @@
 			"proxy_hint": "모든 네트워크 요청을 사용자 지정 프록시 서버를 통해 전송합니다.",
 			"proxy_placeholder": "http://host:port (설정하지 않으려면 비워두세요)",
 			"stream_clients": "스트리밍 기기",
-			"stream_clients_hint": "스트리밍 연결 시 제외하고 싶은 기기는 비활성화하세요. 이 설정은 {var} 환경 변수가 지정되어 있으면 무시됩니다."
+			"stream_clients_hint": "스트리밍 연결 시 제외하고 싶은 기기는 비활성화하세요. 이 설정은 {var} 환경 변수가 지정되어 있으면 무시됩니다.",
+			"language_search": "언어 검색",
+			"language_contribute": "Limusic 번역 기여하기",
+			"start_minimized": "시스템 시작 시 트레이로 실행",
+			"start_minimized_hint": "컴퓨터가 켜질 때 Limusic이 자동으로 시작되면, 직접 열기 전까지는 시스템 트레이에 머물러 있습니다. 앱을 클릭하여 직접 열면 항상 창이 표시됩니다.",
+			"track_notifications": "노래 재생 알림",
+			"track_notifications_hint": "Limusic이 백그라운드 상태일 때 새로운 곡이 시작되면 알림을 표시합니다."
 		},
 		"themes": {
 			"interface_font": "인터페이스 글꼴",
@@ -397,7 +438,15 @@
 			"crossfade_hint": "재생 중인 곡이 끝날 때 다음 곡이 자연스럽게 겹치며 시작되도록 합니다. 곡이 전환 되는 동안 두 개의 오디오 디코더가 동시에 실행되므로 메모리를 약간 더 사용합니다.",
 			"crossfade_duration": "크로스페이드 시간",
 			"crossfade_duration_hint": "곡이 겹쳐서 재생되는 시간이에요. 짧은 곡은 페이드 시간이 줄어들어, 이전 곡이 끝나기 전에 다음 페이드가 시작되지 않도록 조절해요.",
-			"crossfade_seconds": "{secs}초"
+			"crossfade_seconds": "{secs}초",
+			"crossfade_lt_paused": "'함께 듣기' 방에 입장해 있는 동안에는 일시 중지됩니다. 두 트랙의 겹치는 구간(크로스페이드)은 다른 참여자들과 완벽히 동기화하기 어렵습니다.",
+			"lyrics_sources": "가사 소스",
+			"lyrics_sources_hint": "위에서부터 순서대로 가사를 요청합니다. 아래쪽에 있는 소스라도 '동기화된 가사(자막형)'가 있다면, 그보다 위에 있는 소스의 '일반 텍스트 가사'보다 우선하여 가져옵니다. 꺼진 소스에서는 가사를 요청하지 않습니다.",
+			"lyrics_sources_reset": "순서 초기화",
+			"lyrics_move_source": "{name} 이동",
+			"lyrics_moved_source": "{name} 가사 소스가 총 {total}개 중 {position}번째 위치로 이동",
+			"lyrics_use_source": "{name} 사용",
+			"lyrics_sources_none": "모든 가사 소스가 꺼져 있어 가사를 찾을 수 없습니다."
 		},
 		"data": {
 			"clear_cache": "이미지 및 스트리밍 캐시 삭제",
@@ -428,7 +477,10 @@
 			"report_issue_button": "제보",
 			"kofi": "개발자에게 커피 한잔 사기",
 			"kofi_hint": "Limusic은 언제나 무료이며 앞으로도 계속 무료입니다. 개발에 보탬이 되고 싶으시다면 Ko-fi를 통해 마음을 전하실 수 있습니다.",
-			"kofi_button": "Ko-fi 페이지로 이동"
+			"kofi_button": "Ko-fi 페이지로 이동",
+			"rollback_available": "이 버전은 마지막으로 정상 작동이 확인된 릴리스인 {version} 버전으로 롤백(복구) 중입니다.",
+			"beta": "베타 버전",
+			"beta_hint": "다른 사람보다 며칠 먼저 새로운 버전을 만나보세요. 테스트가 덜 된 버전일 수 있습니다. 이 옵션을 끄면 다음 정식 버전이 출시될 때까지 현재 버전을 유지합니다."
 		},
 		"discord": {
 			"enable": "디스코드 Rich Presence 연동",
@@ -540,7 +592,8 @@
 			"public_off": "본인만 이 재생목록을 볼 수 있습니다.",
 			"artwork_note": "이미지는 여기에 즉시 반영되고 백그라운드에서 YouTube Music에 업로드됩니다. 정사각형 JPEG나 PNG 형식을 권장합니다.",
 			"pick_artwork": "플레이리스트 이미지 선택",
-			"image_filter": "이미지"
+			"image_filter": "이미지",
+			"local_artwork_note": "이미지는 이 컴퓨터에만 저장됩니다. 정사각형 모양의 JPEG 또는 PNG 파일이 가장 잘 어울립니다."
 		},
 		"share": {
 			"title": "공유",
@@ -579,7 +632,7 @@
 		"link": {
 			"title": "링크 열기",
 			"desc": "곡, 플레이리스트, 앨범 또는 아티스트의 YouTube Music 링크를 붙여넣으세요.",
-			"open": "열",
+			"open": "열기",
 			"invalid_link": "올바른 YouTube Music 주소가 아닙니다"
 		},
 		"listen_together": {
@@ -590,14 +643,14 @@
 			"join_tab": "참여",
 			"host_tab": "호스",
 			"invite_code": "초대 코드",
-			"invite_placeholder": "친구가 공유한 초대 링크를 붙여넣으세요",
-			"invite_hint": "초대에 서버 주소가 담겨 있으므로 추가 설정은 하지 않아도 됩니다.",
+			"invite_placeholder": "친구가 보낸 방 코드를 붙여넣어 주세요",
+			"invite_hint": "이 코드에 필요한 모든 정보가 포함되어 있어, 추가로 설정할 필요가 없습니다.",
 			"your_name": "내 이름",
 			"your_name_placeholder": "닉네임 입력",
-			"join_button": "세션 참여하기",
-			"sync_server_placeholder": "wss://your.machine.ts.net/ws",
-			"sync_server_hint": "직접 호스팅하는 서버(예: Tailscale Funnel URL)를 입력합니다. 다음 사용을 위해 저장됩니다.",
-			"start_button": "세션 시작",
+			"join_button": "방 참여하기",
+			"sync_server_placeholder": "wss://개인-서버/ws",
+			"sync_server_hint": "자체 동기화 서버를 운영하는 경우에만 변경하는 것을 권장합니다.",
+			"start_button": "방 만들기",
 			"hosting": "호스팅",
 			"listening": "재생 중",
 			"copy_invite": "초대 코드 복사",
@@ -617,7 +670,29 @@
 			"status_connected": "연결됨",
 			"status_disconnected": "연결 끊김",
 			"err_enter_name": "먼저 이름을 입력해 주세요",
-			"err_paste_code": "친구에게 받은 초대 코드를 붙여넣어 보세요"
+			"err_paste_code": "친구에게 받은 초대 코드를 붙여넣어 보세요",
+			"subtitle": "언제 어디서나, 누구와도 동시에 같은 음악을 들어보세요.",
+			"host_blurb": "공유할 수 있는 짧은 코드가 생성됩니다. 방에 참여한 모든 사람은 내가 재생하는 음악을 실시간으로 동기화하여 똑같이 듣게 됩니다.",
+			"share_hint": "함께 음악을 듣고 싶은 친구에게 이 코드를 보내세요.",
+			"change_server": "서버 변경",
+			"custom_server": "사용자 지정",
+			"use_default": "기본값 사용",
+			"approve": "참여 수락",
+			"decline": "참여 거절",
+			"queue_it": "대기열에 추가",
+			"dismiss": "닫기",
+			"alone_hint": "아직 참여자가 없습니다. 위의 코드를 공유하여 방을 채워보세요.",
+			"copy_code": "코드 복사",
+			"copied": "복사됨"
+		},
+		"new_playlist": {
+			"where": "저장 위치 선택",
+			"account": "유튜브 뮤",
+			"account_desc": "계정에 저장되어 어디서나 로그인하여 확인할 수 있습니다",
+			"device": "이 기기",
+			"device_desc": "계정이 필요 없으며, 이 컴퓨터에만 저장됩니다",
+			"device_only": "이 컴퓨터에만 저장되며 계정이 필요 없습니다. 대신 YouTube Music에 재생목록을 만드려면 로그인해 주세요.",
+			"local_files": "컴퓨터에 있는 로컬 곡들은 이 기기의 재생목록에만 추가할 수 있습니다."
 		}
 	},
 	"integrations": {
@@ -679,7 +754,53 @@
 	"lyrics": {
 		"title": "가사",
 		"instrumental": "연주곡",
-		"none_found": "등록된 가사가 없습니다."
+		"none_found": "등록된 가사가 없습니다.",
+		"source": "{source} 제공 가사",
+		"romanize": "로마자 표기",
+		"romanize_hint": "각 가사 줄의 발음을 라틴 문자로 표시합니다",
+		"find": "가사 찾기",
+		"none_found_hint": "다른 소스를 선택하거나 다른 제목으로 검색해 보세요.",
+		"sources_title": "가사 소스",
+		"sources_hint": "이 곡에만 적용됩니다. 기본 순서는 설정에서 변경할 수 있습니다.",
+		"open_settings": "가사 설정",
+		"automatic": "자동",
+		"automatic_hint": "설정한 순서에서 처음으로 일치하는 가사",
+		"automatic_showing": "{source} 가사 표시 중",
+		"kind_words": "단어별",
+		"kind_synced": "싱크 가사",
+		"kind_plain": "텍스트 가사",
+		"not_found": "찾을 수 없음",
+		"unreachable": "연결 실패",
+		"retry": "다시 시도",
+		"check": "확인",
+		"off": "비활성화",
+		"off_hint": "설정에서 꺼져 있습니다. 그래도 이 곡의 가사를 확인하시겠습니까?",
+		"translated": "번역 포함",
+		"chosen": "이 곡에 적용됨",
+		"timing": "싱크 조절",
+		"timing_hint": "가사가 가수보다 빨리 나오나요? 가사를 뒤로 미뤄보세요.",
+		"timing_value": "{value}초",
+		"timing_earlier": "가사 앞으로 당기기",
+		"timing_later": "가사 뒤로 미루기",
+		"timing_reset": "싱크 초기화",
+		"search_open": "다른 곡인가요? 제목으로 검색하기",
+		"search_title": "제목",
+		"search_artist": "아티스트",
+		"search_go": "검색",
+		"search_reset": "현재 곡으로 돌아가기",
+		"search_results": "{query} 검색 결과",
+		"translation": "가사 번역",
+		"translation_hint": "일부 소스에서 제공하는 번역 가사를 각 가사 줄 아래에 표시합니다",
+		"about": {
+			"boidu": "더 나은 가사 데이터베이스입니다. 이전에 다른 누군가가 검색해 본 적이 있는 곡을 대상으로 단어별 싱크 가사를 제공합니다.",
+			"lyricsplus": "애플 뮤직의 가사를 가져오며, 단어별 싱크와 함께 애플 고유의 로마자 발음 표기를 제공합니다.",
+			"lrclib": "공개형 싱크 가사 라이브러리입니다. 가장 방대한 커버리지를 자랑합니다.",
+			"youtube": "라이선스가 확보된 곡에 한해 제공되는 YouTube Music 자체 가사입니다.",
+			"simpmusic": "정확한 YouTube 업로드 영상에 맞춰 매칭된 커뮤니티 가사로, 인트로 구간도 포함됩니다.",
+			"netease": "방대한 중국어 음악 카탈로그를 보유하고 있습니다. 많은 곡에 중국어 번역 가사를 추가로 제공합니다.",
+			"qq": "중국어 음악 카탈로그를 제공하며 만도팝(중국 본토 팝)과 칸토팝(홍콩 팝)에 강점이 있습니다.",
+			"kugou": "중국어 음악 카탈로그를 제공하며, 희귀한 트랙(곡)들을 찾을 때 유용합니다."
+		}
 	},
 	"queue": {
 		"title": "재생목록"
@@ -765,5 +886,11 @@
 		"offline_title": "연결 끊",
 		"offline_body": "Limusic이 YouTube Music에 연결할 수 없습니다. 인터넷 연결을 확인한 후 다시 시도해 주세요.",
 		"generic_title": "문제가 발생했습니다"
+	},
+	"search": {
+		"recent": "최근 검색어",
+		"clear_recent": "지우기",
+		"forget": "최근 검색어에서 “{query}” 삭제",
+		"filters": "결과 유형"
 	}
 }

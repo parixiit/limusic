@@ -84,7 +84,11 @@ windows = { version = "0.61", features = [
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
+# The music video's GL surface under the webview (nativevideo.rs). Same version tauri pulls in.
+gtk = "0.18"
 ksni = "0.3.6"
 libc = "0.2"
 # Reaching the WebKitGTK settings wry leaves at browser defaults. Must track wry's version.
 webkit2gtk = { version = "2.0", features = ["v2_40"] }
+# Holding off suspend while playing (inhibit.rs, #347). Already in the tree through notify-rust.
+zbus = "5"

@@ -356,7 +356,11 @@
 			"stream_clients": "串流客戶端",
 			"stream_clients_hint": "處理串流資訊時，如果需要跳過某個步驟，可以通過設定環境變數 {var} 來控制。",
 			"language_search": "搜尋語言",
-			"language_contribute": "協助翻譯 Limusic"
+			"language_contribute": "協助翻譯 Limusic",
+			"track_notifications": "歌曲通知",
+			"track_notifications_hint": "當 Limusic 背景運行而有新歌曲開始播放時，顯示通知。",
+			"start_minimized": "開機啟動後隱藏",
+			"start_minimized_hint": "當 Limusic 在開機時啟動，應用程序將保持在背景運行。當使用者手動啟動 Limusic 時，應用程式視窗不會自動隱藏。"
 		},
 		"themes": {
 			"interface_font": "介面字體",

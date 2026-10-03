@@ -14,7 +14,8 @@ use std::time::{Duration, Instant};
 
 use innertube::{
     find_format, find_video_format, rustypipe_fallback, AudioQuality, Clients, Format, InnerTube,
-    PlayerResponse, MAIN_CLIENT, STREAM_FALLBACK_ORDER, UPLOAD_FALLBACK_ORDER,
+    PlayerResponse, StreamingData, YouTubeClient, MAIN_CLIENT, STREAM_FALLBACK_ORDER,
+    UPLOAD_FALLBACK_ORDER,
 };
 use tokio::sync::Mutex;
 
@@ -119,6 +120,15 @@ pub struct Orchestrator {
     /// retry that follows the failure, and a permanent one meant a single bad minute cost that
     /// track its best client for the rest of the session.
     web_remix_failed: Arc<Mutex<HashMap<String, Instant>>>,
+    /// videoId → (usable until, the `streamingData` of a music video's WEB_REMIX reply). `resolve`
+    /// already paid for that reply and it lists the picture next to the audio, so
+    /// [`resolve_video`](Self::resolve_video) takes it from here instead of asking again. Taken
+    /// once: the URL made from it is cached upstream (`AppState::video_urls`).
+    /// ponytail: cleared wholesale at 8 entries, like `video_urls`.
+    video_replies: std::sync::Mutex<HashMap<String, (Instant, StreamingData)>>,
+    /// videoId → when its picture failed to load after it was handed out. Same TTL as
+    /// `web_remix_failed`; see [`mark_video_failed`](Self::mark_video_failed).
+    video_failed: std::sync::Mutex<HashMap<String, Instant>>,
 }
 
 const WEB_REMIX_BLACKLIST_TTL: Duration = Duration::from_secs(30 * 60);
@@ -169,7 +179,24 @@ impl Orchestrator {
             cipher,
             potoken,
             web_remix_failed: Arc::new(Mutex::new(HashMap::new())),
+            video_replies: Default::default(),
+            video_failed: Default::default(),
         }
+    }
+
+    /// The picture for `video_id` failed after it was handed out: the `<video>` element errored, or
+    /// mpv could not open it. Its next [`resolve_video`](Self::resolve_video) tries VISIONOS first,
+    /// and the kept WEB_REMIX reply goes, because the dead URL came out of it. `true` only the
+    /// first time within the TTL, so a caller that retries on failure retries once, not forever.
+    pub fn mark_video_failed(&self, video_id: &str) -> bool {
+        if let Ok(mut kept) = self.video_replies.lock() {
+            kept.remove(video_id);
+        }
+        let Ok(mut failed) = self.video_failed.lock() else { return false };
+        let now = Instant::now();
+        let first = !blacklist_blocks(&failed, video_id, now);
+        blacklist_insert(&mut failed, video_id, now);
+        first
     }
 
     /// Record that a WEB_REMIX stream for `video_id` failed on the real GET (called by the player
@@ -262,6 +289,9 @@ impl Orchestrator {
         }
 
         let main_ok = main_resp.as_ref().is_some_and(|r| r.playability_status.is_ok());
+        if main_ok && main_key == MAIN_CLIENT {
+            self.keep_video_reply(video_id, main_resp.as_ref().unwrap());
+        }
         // The main response's status was the one thing the log never showed, so a report where
         // nothing played could not be told apart from one where only the fallbacks failed
         // (issue #292). `reason` is YouTube's own sentence, which is what separates a country
@@ -389,15 +419,7 @@ impl Orchestrator {
                 && (client.is_some_and(|c| c.use_web_po_tokens)
                     || NEEDS_N_TRANSFORM.contains(&key.as_str()));
             if needs_n {
-                url = self.cipher.transform_n_param_in_url(&url).await;
-                if client.is_some_and(|c| c.use_web_po_tokens) {
-                    if let Some(vd) = &visitor {
-                        if let Some(pot) = self.potoken.get_streaming_po_token(video_id, vd).await {
-                            let sep = if url.contains('?') { '&' } else { '?' };
-                            url = format!("{url}{sep}pot={}", urlencoding::encode(&pot));
-                        }
-                    }
-                }
+                url = self.sign(url, client, video_id, visitor.as_deref()).await;
             }
 
             // HIGH two-pass: remember the best non-HIGH and keep looking if a HIGH exists elsewhere.
@@ -558,45 +580,139 @@ impl Orchestrator {
     /// A video-only stream URL for `video_id`, for the player view's music-video mode (plan 031).
     ///
     /// Deliberately not part of [`resolve`](Self::resolve): this runs only while someone is looking
-    /// at the player view with video on, it needs no cipher, no PoToken and no HEAD two-pass, and it
-    /// must never be able to make audio slower or less reliable. A `None` here just means the view
-    /// keeps the artwork.
+    /// at the player view with video on, and it must never be able to make audio slower or less
+    /// reliable. A `None` here just means the view keeps the artwork.
+    ///
+    /// WEB_REMIX first. It carries the session's PoToken, visitor data and login, so it passes the
+    /// bot check that turns VISIONOS away from a flagged IP: on 2026-09-30 VISIONOS answered "Sign
+    /// in to confirm you're not a bot" for every video while WEB_REMIX kept resolving the audio of
+    /// the same ids. VISIONOS is the fallback, and goes first for a track whose picture already
+    /// failed ([`mark_video_failed`](Self::mark_video_failed)).
     pub async fn resolve_video(
         &self,
         video_id: &str,
         max_height: i32,
         disabled: &HashSet<String>,
     ) -> Option<String> {
-        // VISIONOS alone: ANDROID_VR's video URLs are capped at the first mebibyte like its audio
-        // ones (issue #292), so it could only ever hand the view a stream that dies mid-clip.
-        for key in ["VISIONOS"] {
+        let failed =
+            self.video_failed.lock().is_ok_and(|m| blacklist_blocks(&m, video_id, Instant::now()));
+        let order = if failed { ["VISIONOS", MAIN_CLIENT] } else { [MAIN_CLIENT, "VISIONOS"] };
+        for key in order {
             // The "stream clients" setting covers this path too. It used to be read only by
             // `resolve`, so a user who turned a client off still got it here, which is both a
             // setting that does not do what it says and a client they had a reason to refuse.
             if disabled.contains(key) {
                 continue;
             }
-            let Some(client) = self.clients.get(key) else { continue };
-            let resp = match self.it.player(client, video_id, None, None, None).await {
-                Ok(r) => r,
-                Err(e) => {
-                    tracing::debug!(video_id, client = key, error = %e, "video: /player failed");
-                    continue;
-                }
+            let url = if key == MAIN_CLIENT {
+                self.web_remix_video(video_id, max_height).await
+            } else {
+                self.direct_video(key, video_id, max_height).await
             };
-            if !resp.playability_status.is_ok() {
-                continue;
-            }
-            let Some(sd) = resp.streaming_data.as_ref() else { continue };
-            // Only ever a direct URL: these clients don't cipher, and a ciphered video is not worth
-            // waking the cipher webview for.
-            if let Some(url) = find_video_format(sd, max_height).and_then(|f| f.direct_url()) {
+            if let Some(url) = url {
                 tracing::debug!(video_id, client = key, "video: resolved");
-                return Some(url.to_owned());
+                return Some(url);
             }
         }
         tracing::debug!(video_id, "video: no usable format");
         None
+    }
+
+    /// Keep a music video's WEB_REMIX reply for [`resolve_video`](Self::resolve_video).
+    fn keep_video_reply(&self, video_id: &str, resp: &PlayerResponse) {
+        let is_video = resp.video_details.as_ref().and_then(|v| v.is_music_video());
+        let Some(sd) = resp.streaming_data.as_ref().filter(|_| is_video == Some(true)) else {
+            return;
+        };
+        let Some(secs) = sd.expires_in_seconds.and_then(|s| u64::try_from(s).ok()) else { return };
+        let Ok(mut kept) = self.video_replies.lock() else { return };
+        if kept.len() >= 8 {
+            kept.clear();
+        }
+        kept.insert(video_id.to_owned(), (Instant::now() + Duration::from_secs(secs), sd.clone()));
+    }
+
+    /// The picture from WEB_REMIX: the reply `resolve` kept when there is one, else a `/player` of
+    /// its own. Its URL gets everything the audio's gets (decipher, `n`, `&pot=`) and the same tail
+    /// probe, because googlevideo caps some WEB_REMIX URLs at their first ~768 KiB
+    /// (`validate_stream`). The probe sends no headers since neither proxy does, and googlevideo
+    /// was measured to serve these URLs without a User-Agent or cookie.
+    async fn web_remix_video(&self, video_id: &str, max_height: i32) -> Option<String> {
+        let client = self.clients.get(MAIN_CLIENT)?;
+        let visitor = self.it.visitor_data();
+        let kept = self.video_replies.lock().ok().and_then(|mut m| m.remove(video_id));
+        let sd = match kept.filter(|(until, _)| *until > Instant::now()) {
+            Some((_, sd)) => sd,
+            None => {
+                let sts = self.cipher.signature_timestamp().await;
+                let pot = match &visitor {
+                    Some(vd) => self.potoken.get_session_po_token(vd).await,
+                    None => None,
+                };
+                let resp =
+                    self.it.player(client, video_id, None, sts, pot.as_deref()).await.ok()?;
+                if !resp.playability_status.is_ok() {
+                    tracing::debug!(video_id, status = %resp.playability_status.status, "video: WEB_REMIX not OK");
+                    return None;
+                }
+                resp.streaming_data?
+            }
+        };
+        let format = find_video_format(&sd, max_height)?;
+        let url = self.find_url(format, video_id).await?;
+        let url = self.sign(url, Some(client), video_id, visitor.as_deref()).await;
+        if !self.validate_stream(&url, &HashMap::new(), content_length(format)).await {
+            tracing::debug!(video_id, itag = format.itag, "video: WEB_REMIX URL refused");
+            return None;
+        }
+        Some(url)
+    }
+
+    /// The picture from a direct-URL client (VISIONOS): nothing to decipher or sign.
+    ///
+    /// Not ANDROID_VR: its video URLs are capped at the first mebibyte like its audio ones (issue
+    /// #292), so it could only ever hand the view a stream that dies mid-clip.
+    async fn direct_video(&self, key: &str, video_id: &str, max_height: i32) -> Option<String> {
+        let client = self.clients.get(key)?;
+        let resp = match self.it.player(client, video_id, None, None, None).await {
+            Ok(r) => r,
+            Err(e) => {
+                tracing::debug!(video_id, client = key, error = %e, "video: /player failed");
+                return None;
+            }
+        };
+        if !resp.playability_status.is_ok() {
+            tracing::debug!(
+                video_id,
+                client = key,
+                reason = resp.playability_status.reason.as_deref().unwrap_or(""),
+                "video: not OK"
+            );
+            return None;
+        }
+        let sd = resp.streaming_data.as_ref()?;
+        find_video_format(sd, max_height).and_then(|f| f.direct_url()).map(str::to_owned)
+    }
+
+    /// `n`-transform, then `&pot=` for a PoToken client (context/05, 06). A step that fails leaves
+    /// the URL as it was, so playback still tries it.
+    async fn sign(
+        &self,
+        url: String,
+        client: Option<&YouTubeClient>,
+        video_id: &str,
+        visitor: Option<&str>,
+    ) -> String {
+        let mut url = self.cipher.transform_n_param_in_url(&url).await;
+        if client.is_some_and(|c| c.use_web_po_tokens) {
+            if let Some(vd) = visitor {
+                if let Some(pot) = self.potoken.get_streaming_po_token(video_id, vd).await {
+                    let sep = if url.contains('?') { '&' } else { '?' };
+                    url = format!("{url}{sep}pot={}", urlencoding::encode(&pot));
+                }
+            }
+        }
+        url
     }
 
     /// A format's playable URL: direct, else deciphered from its `signatureCipher`. context/05.
