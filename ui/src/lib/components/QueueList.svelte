@@ -4,7 +4,7 @@
 	import { cubicOut } from 'svelte/easing';
 	import { MediaQuery } from 'svelte/reactivity';
 	import { HugeiconsIcon } from '@hugeicons/svelte';
-	import { ArrowTurnBackwardIcon, HistoryIcon, InfinityIcon } from '@hugeicons/core-free-icons';
+	import { ArrowTurnBackwardIcon, HistoryIcon, InfinityIcon, Location01Icon } from '@hugeicons/core-free-icons';
 	import TrackRow from '$lib/components/TrackRow.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as api from '$lib/api';
@@ -328,7 +328,7 @@
 <!-- Keep the disclosure outside the scroller so its hit target stays in place. The section's own
      heading stays in the list with the rows it names: this bar sits above `Earlier` too, which is
      not history, so a heading here would be labelling the wrong thing. -->
-{#if view.now && (view.prev.length || playback.queue.prevTrack)}
+{#if view.now}
 	<div class="flex shrink-0 items-center justify-end gap-2 px-2 py-1">
 		<!-- Clicking a song throws the queue away, so the history below is empty and the tracks that
 		     were actually just played are in the queue we kept. One line for the whole of it: these
@@ -348,6 +348,22 @@
 				<span class="truncate">{t('player.back_to', { title: playback.queue.prevTrack })}</span>
 			</Button>
 		{/if}
+		<Button
+			variant="ghost"
+			size="xs"
+			class="{!playback.queue.prevTrack ? 'mr-auto' : ''} h-7 shrink-0 cursor-pointer gap-1.5 rounded-md px-2 text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:ring-2 motion-reduce:transition-none"
+			onclick={() => {
+				if (nowEl && el) {
+					el.scrollTo({
+						top: nowEl.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - (historyEl && showPrev ? historyEl.getBoundingClientRect().height : 0),
+						behavior: reducedMotion.current ? 'instant' : 'smooth'
+					});
+				}
+			}}
+		>
+			<HugeiconsIcon icon={Location01Icon} class="size-3.5 shrink-0" />
+			<span class="truncate">{t('player.now_playing')}</span>
+		</Button>
 		{#if view.prev.length}
 			<Button
 				bind:ref={historyButton}
