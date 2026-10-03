@@ -113,10 +113,16 @@
 	{#key now?.videoId}
 		{#if now?.thumbnail}
 			<img
+				src={thumb(now.thumbnail, 120)}
+				alt=""
+				in:fade={{ duration: 300 }}
+				class="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-30 blur-3xl saturate-[1.5]"
+			/>
+			<img
 				src={thumb(now.thumbnail, 480)}
 				alt=""
 				in:fade={{ duration: 300 }}
-				class="pointer-events-none absolute inset-y-0 left-0 h-full w-[56%] object-cover"
+				class="pointer-events-none absolute inset-y-0 left-0 z-0 h-full w-[56%] object-cover"
 				style="mask-image:linear-gradient(to right,#000 0,#000 70%,transparent 100%);-webkit-mask-image:linear-gradient(to right,#000 0,#000 70%,transparent 100%)"
 			/>
 		{/if}
@@ -124,7 +130,7 @@
 	<!-- Enough shade to keep white text readable over a bright cover, following the same fade so it
 	     never draws an edge of its own. The art stays plainly visible under it. -->
 	<div
-		class="pointer-events-none absolute inset-y-0 left-0 w-[56%]"
+		class="pointer-events-none absolute inset-y-0 left-0 z-0 w-[56%]"
 		style="background:linear-gradient(to right,rgb(0 0 0/0.72) 0%,rgb(0 0 0/0.58) 70%,rgb(0 0 0/0) 100%)"
 	></div>
 
