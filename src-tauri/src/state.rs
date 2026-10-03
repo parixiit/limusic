@@ -2022,12 +2022,39 @@ impl AppState {
             .filter(|(vid, _)| *vid == item.video_id)
             .map(|(_, pos)| pos);
         let stream_url = mpv_stream_url(&data);
-        if let Err(e) =
-            self.player.load(&stream_url, &data.headers, self.track_gain(data.loudness_db), seek)
-        {
+        let gain = self.track_gain(data.loudness_db);
+        // When crossfade is on and there's no restore position, keep the active deck playing while
+        // the new track buffers on the idle deck, then instant-crossfade. This eliminates the
+        // silent gap between manual skips.
+        let skip_crossfade = seek.is_none() && self.player.is_crossfade_enabled();
+        if let Err(e) = self.player.load_crossfade_skip(&stream_url, &data.headers, gain, seek) {
             self.emit_error(&item.video_id, &e.to_string());
             return false;
         }
+        if skip_crossfade {
+            // Poll asynchronously until the idle deck has the file open (FileLoaded event fired).
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+            loop {
+                if self.generation.load(Ordering::SeqCst) != gen {
+                    return false; // user skipped again while we waited
+                }
+                if self.player.is_preloaded() {
+                    self.player.finish_crossfade_skip(gain);
+                    break;
+                }
+                if self.player.preload_cancelled() || std::time::Instant::now() > deadline {
+                    // The preload was evicted (another skip) or timed out — hard-load fallback.
+                    tracing::warn!("crossfade-skip: preload cancelled or timed out, hard-loading");
+                    if let Err(e) = self.player.load(&stream_url, &data.headers, gain, None) {
+                        self.emit_error(&item.video_id, &e.to_string());
+                        return false;
+                    }
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(30)).await;
+            }
+        }
+
         // Items played from cards/radio can arrive without a duration; the player response knows
         // the exact length of the cut we stream. Backfill before emitting — lyrics matching keys
         // on it (a wrong-cut LRCLIB match plays lyrics seconds off the audio).

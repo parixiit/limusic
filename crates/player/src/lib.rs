@@ -353,6 +353,67 @@ impl Player {
         Ok(())
     }
 
+    /// Like [`Self::load`] but keeps the active deck playing while the new track opens on the idle
+    /// deck, then immediately crossfades once it is ready. This eliminates the silent gap that a
+    /// normal `load` causes (mpv cuts the current stream before the new one has buffered).
+    ///
+    /// Falls through to a plain `load` when crossfade is disabled (the idle deck doesn't exist).
+    pub fn load_crossfade_skip(
+        &self,
+        url: &str,
+        headers: &HashMap<String, String>,
+        gain_db: Option<f64>,
+        start: Option<f64>,
+    ) -> Result<(), Error> {
+        // If restoring a position, we can't preload+seek simultaneously — fall back to normal load.
+        if self.decks.crossfade_ms.load(Ordering::Relaxed) == 0 || start.is_some() {
+            return self.load(url, headers, gain_db, start);
+        }
+        // Cancel any fade already running, so the ramp thread stops writing to decks we are
+        // about to repurpose. drop_preload also evicts any pending lookahead URL so it is not
+        // loaded onto the idle deck after we put our track there.
+        self.drop_preload(true);
+        // Set headers on the *active* deck so `preload` copies them to the idle one via INHERITED.
+        self.apply_headers(headers)?;
+        self.af.lock().unwrap().0 = gain_db;
+        let idle = self.idle_mpv()?;
+        preload(&self.decks, &idle, url)?;
+        Ok(())
+    }
+
+    /// Returns true when the idle deck has a track open and ready to fade in.
+    pub fn is_preloaded(&self) -> bool {
+        self.decks.preloaded.load(Ordering::Acquire)
+    }
+
+    /// Returns true when the in-flight preload was cancelled by a concurrent skip.
+    pub fn preload_cancelled(&self) -> bool {
+        self.decks.preload_armed.load(Ordering::SeqCst)
+            != self.decks.preload_gen.load(Ordering::SeqCst)
+    }
+
+    /// Returns true when crossfade is enabled (> 0 ms).
+    pub fn is_crossfade_enabled(&self) -> bool {
+        self.decks.crossfade_ms.load(Ordering::Relaxed) > 0
+    }
+
+    /// Trigger the crossfade from the current active deck to the preloaded idle deck.
+    /// Call this after `is_preloaded()` returns true. Uses a short 0.4 s click-free cut.
+    pub fn finish_crossfade_skip(&self, gain_db: Option<f64>) {
+        // Apply the gain on the idle deck directly before the crossfade starts.
+        if let Some(g) = gain_db {
+            if let Ok(idle) = self.idle_mpv() {
+                let chain = {
+                    let af = self.af.lock().unwrap();
+                    af_chain(Some(g), af.1)
+                };
+                let _ = idle.set_property("af", chain.as_str());
+            }
+        }
+        let from = self.decks.active.load(Ordering::SeqCst);
+        start_crossfade(&self.decks, from, 0.4, false);
+    }
+
     /// Append the next track for a gapless transition (the 1-track lookahead). context/14.
     ///
     /// Note: mpv's `http-header-fields`/`user-agent` are global properties, so appended tracks
@@ -904,7 +965,7 @@ fn maybe_crossfade(decks: &Arc<Decks>, deck: usize, pos: f64, duration: f64) {
         return;
     }
     let Some(fade) = fade_due(decks.crossfade_secs(), pos, duration) else { return };
-    start_crossfade(decks, deck, fade);
+    start_crossfade(decks, deck, fade, true);
 }
 
 /// Begin the overlap: swap which deck the app hears, unpause the preloaded one, and ramp both
@@ -914,7 +975,7 @@ fn maybe_crossfade(decks: &Arc<Decks>, deck: usize, pos: f64, duration: f64) {
 /// one being heard: the app advances its queue there, so the UI, the media keys and the scrobbler
 /// change over with the audio rather than seconds late. The outgoing deck's real end-of-file is
 /// dropped by [`event_loop`], which by then is no longer the live deck.
-fn start_crossfade(decks: &Arc<Decks>, from: usize, fade: f64) {
+fn start_crossfade(decks: &Arc<Decks>, from: usize, fade: f64, send_track_ended: bool) {
     let (Some(out), Some(incoming)) = (decks.mpv(from), decks.mpv(1 - from)) else { return };
     let (out, incoming) = (out.clone(), incoming.clone());
     // Tempo is per instance and is set on whatever deck was active at the time (`set_speed`, the
@@ -929,7 +990,11 @@ fn start_crossfade(decks: &Arc<Decks>, from: usize, fade: f64) {
     decks.fading.store(true, Ordering::Release);
     decks.active.store(1 - from, Ordering::SeqCst);
     let _ = incoming.set_property("pause", false);
-    let _ = decks.tx.send(PlayerEvent::TrackEnded);
+    // For a natural end-of-track crossfade, TrackEnded advances the queue. For a manual skip the
+    // queue was already advanced by play_index — sending it again would skip two tracks.
+    if send_track_ended {
+        let _ = decks.tx.send(PlayerEvent::TrackEnded);
+    }
     // mpv reported the incoming track's duration when it was *preloaded*, while this deck was
     // still the inactive one, so that event was dropped and nothing repeats it: a property change
     // is only sent when the property changes. Without this the player bar keeps the outgoing
