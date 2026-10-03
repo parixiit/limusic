@@ -17,8 +17,8 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import ExplicitIcon from './ExplicitIcon.svelte';
 	import ItemMenu from './ItemMenu.svelte';
-	import type { BrowseItem } from '$lib/api';
-	import { openItem, searchPreview } from '$lib/browse';
+	import { searchSuggestions, type BrowseItem, type SearchSuggestions } from '$lib/api';
+	import { openItem, rowMeta } from '$lib/browse';
 	import { thumb } from '$lib/thumb';
 	import { t } from '$lib/i18n.svelte';
 

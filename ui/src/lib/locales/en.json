@@ -143,6 +143,8 @@
 		"pause": "Pause",
 		"next": "Next",
 		"previous": "Previous",
+		"show_history": "Show history",
+		"hide_history": "Hide history",
 		"shuffle": "Shuffle",
 		"repeat_off": "Repeat Off",
 		"repeat_all": "Repeat All",

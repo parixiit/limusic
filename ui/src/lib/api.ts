@@ -96,6 +96,8 @@ export interface QueueState {
 	 *  Set only while `backToPrevious` would actually do something: at the head of the queue, with
 	 *  a kept one behind it. */
 	prevTrack?: string | null;
+	/** The index from which the queue was started, to highlight the history. */
+	playedFrom?: number;
 }
 
 export interface Account {
