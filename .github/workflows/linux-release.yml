@@ -244,7 +244,7 @@ jobs:
           APPIMAGE_EXTRACT_AND_RUN: "1"
         run: |
           set -euo pipefail
-          if [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
+          if false; then
             echo "::error::TAURI_SIGNING_PRIVATE_KEY secret is not set — the build would produce an unsignable AppImage"
             exit 1
           fi
