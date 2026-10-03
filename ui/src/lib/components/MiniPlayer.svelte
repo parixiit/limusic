@@ -52,13 +52,12 @@
 	// A local file has no YouTube identity, so there is nothing to like (see api.isLocalId).
 	const likeable = $derived(!!now && !api.isLocalId(now.videoId));
 
-	// Three fit; the fourth is rendered on purpose and clipped by the list's mask, so the queue
-	// reads as continuing rather than ending at whatever happens to fit. Real queue indices so a
-	// click can jump to them.
+	// Reads as continuing rather than ending. Real queue indices so a
+	// click can jump to them. Capped at 50 to avoid rendering the entire queue in the mini player.
 	const upcoming = $derived.by(() => {
 		const { items, currentIndex } = playback.queue;
 		return items
-			.slice(currentIndex + 1, currentIndex + 5)
+			.slice(currentIndex + 1, currentIndex + 50)
 			.map((item, k) => ({ item, index: currentIndex + 1 + k }));
 	});
 
@@ -265,7 +264,7 @@
 			</div>
 		{:else}
 		<div
-			class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-hidden"
+			class="custom-scroll flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden"
 			style="mask-image:linear-gradient(to bottom,#000 0,#000 78%,transparent 100%);-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 78%,transparent 100%)"
 		>
 			{#each upcoming as { item, index } (item.video_id + index)}
