@@ -38,6 +38,7 @@
 	import { thumb } from '$lib/thumb';
 	import LyricsView from './LyricsView.svelte';
 	import Marquee from './Marquee.svelte';
+	import ResizeBorders from './ResizeBorders.svelte';
 	import { t } from '$lib/i18n.svelte';
 
 	// Which of the two the right column is showing. Local, and reset when the widget is destroyed:
@@ -343,3 +344,5 @@
 		</div>
 	</div>
 </div>
+
+<ResizeBorders />

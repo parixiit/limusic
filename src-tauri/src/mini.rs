@@ -31,6 +31,8 @@ const MARGIN: f64 = 24.0;
 /// Where the user last dragged it, as physical `"x,y"`. Physical because monitor geometry is, and
 /// two displays can disagree on scale factor.
 const POS_KEY: &str = "mini_position";
+/// Where the user last resized it, as physical `"w,h"`.
+const SIZE_KEY: &str = "mini_size";
 
 /// Build (or re-show) the widget, and hide the main window behind it.
 ///
@@ -44,7 +46,7 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
         let win = WebviewWindowBuilder::new(app, LABEL, WebviewUrl::App("index.html".into()))
             .title("Limusic")
             .inner_size(W, H)
-            .resizable(false)
+            .resizable(true)
             .decorations(false)
             .transparent(true)
             .always_on_top(true)
@@ -58,6 +60,15 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
 
         if let Some(p) = placement(app, &win) {
             let _ = win.set_position(p);
+        }
+        if let Some(state) = app.try_state::<Arc<AppState>>() {
+            if let Some(sz_str) = state.db.get_setting(SIZE_KEY) {
+                if let Some((w_str, h_str)) = sz_str.split_once(',') {
+                    if let (Ok(w), Ok(h)) = (w_str.parse::<u32>(), h_str.parse::<u32>()) {
+                        let _ = win.set_size(PhysicalSize::new(w, h));
+                    }
+                }
+            }
         }
         // Same treatment as the main window: this is a second web process, and it needs the media
         // and 3D stacks even less than the app does.
@@ -79,8 +90,9 @@ pub fn open(app: &AppHandle) -> Result<(), String> {
 /// quitting from the tray is a way down that never reaches [`close`].
 pub fn save_position(app: &AppHandle) {
     let Some(w) = app.get_webview_window(LABEL) else { return };
-    if let (Ok(p), Some(state)) = (w.outer_position(), app.try_state::<Arc<AppState>>()) {
+    if let (Ok(p), Ok(s), Some(state)) = (w.outer_position(), w.inner_size(), app.try_state::<Arc<AppState>>()) {
         state.db.set_setting(POS_KEY, &format!("{},{}", p.x, p.y));
+        state.db.set_setting(SIZE_KEY, &format!("{},{}", s.width, s.height));
     }
 }
 
