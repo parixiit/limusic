@@ -150,7 +150,7 @@
 			     absolute-positioned with a margin, the pointer left the hover target on its way to
 			     the slider and the slider collapsed before it got there. -->
 			<div
-				class="flex items-center"
+				class="flex flex-1 items-center justify-end"
 				role="group"
 				aria-label={t('a11y.volume')}
 				onpointerenter={() => (volHover = true)}
@@ -161,7 +161,7 @@
 				<input
 					type="range"
 					class="range on-art min-w-0 transition-[width,opacity] duration-150 {volOpen
-						? 'w-20 opacity-100'
+						? 'w-full opacity-100'
 						: 'w-0 opacity-0'}"
 					style="--pct:{playback.volume}%"
 					min="0"
